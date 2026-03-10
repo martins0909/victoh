@@ -314,15 +314,6 @@ const Index = () => {
 
       <CategoryBanners />
 
-      {/* 📜 Footer */}
-      <footer className="py-12 px-6 border-t border-white/40 mt-auto backdrop-blur-sm relative z-10">
-        <div className="container mx-auto text-center">
-          <p className="text-gray-600 dark:text-gray-400 text-base font-medium">
-            &copy; {new Date().getFullYear()} <span className="font-bold text-purple-600">Victohs</span>. All rights reserved.
-          </p>
-        </div>
-      </footer>
-
       {/* Floating Social Support Icons */}
       <div className="fixed bottom-8 left-6 z-50">
         <a

@@ -5,16 +5,16 @@ import Ercaspay from '@capitalsage/ercaspay-nodejs';
 const router = express.Router();
 
 // Validate Ercaspay configuration
-const ECRS_SECRET_KEY = process.env.ECRS_SECRET_KEY;
+const ECRS_AUTH_KEY = (process.env.ECRS_SECRET_KEY || process.env.ECRS_API_KEY || '').trim();
 const ECRS_API_BASE = process.env.ECRS_API_BASE || 'https://api.ercaspay.com';
-if (!ECRS_SECRET_KEY || ECRS_SECRET_KEY.trim() === '') {
-  console.error('FATAL: ECRS_SECRET_KEY is not set in environment variables!');
+if (!ECRS_AUTH_KEY) {
+  console.error('FATAL: Ercaspay key not set. Set ECRS_SECRET_KEY (preferred) or ECRS_API_KEY.');
 }
 
 // Initialize Ercaspay client - MUST use baseURL (uppercase) not baseUrl
 const ercaspay = new Ercaspay({
   baseURL: ECRS_API_BASE,
-  secretKey: (ECRS_SECRET_KEY || '').trim(),
+  secretKey: ECRS_AUTH_KEY,
 });
 
 /**
@@ -65,20 +65,19 @@ router.post('/ercas/initiate', async (req, res) => {
       paymentReference,
       amount: String(amount),
       currency: currency.toUpperCase(),
-      hasSecretKey: Boolean(ECRS_SECRET_KEY && ECRS_SECRET_KEY.length > 0)
+      hasSecretKey: Boolean(ECRS_AUTH_KEY)
     });
 
     // Call Ercaspay API
     // Use direct Axios call to ensure headers are correct and handle errors better
     let response;
     try {
-        const cleanKey = (ECRS_SECRET_KEY || '').trim();
         const axiosRes = await axios.post(
             `${ECRS_API_BASE}/api/v1/payment/initiate`,
             transactionData,
             {
                 headers: {
-                    'Authorization': `Bearer ${cleanKey}`,
+            'Authorization': `Bearer ${ECRS_AUTH_KEY}`,
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 }
