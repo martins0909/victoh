@@ -96,7 +96,7 @@ export default function CategoryBanners() {
             return (
               <div key={cat.id}>
                 <div id={`category-${cat.name}`} className="bg-white dark:bg-[#09090b] rounded-none md:rounded-2xl shadow-xl overflow-hidden border-y md:border border-gray-100 dark:border-gray-700">
-                  <div className="bg-purple-600 dark:bg-purple-700 relative overflow-hidden flex items-end justify-between px-2 md:px-6 pt-2">
+                  <div className="bg-purple-600 dark:bg-purple-700 relative overflow-hidden flex flex-col md:flex-row md:items-end justify-between px-2 md:px-6 pt-2 gap-1 md:gap-0">
                     <div className="flex items-center gap-2 md:gap-3 flex-1 overflow-hidden min-w-0 pr-2 pb-2">
                       {cat.icon && (
                         <img src={cat.icon} alt={cat.name} className="w-8 h-8 md:w-10 md:h-10 object-contain rounded bg-white/20 p-1 shrink-0" />
@@ -106,12 +106,14 @@ export default function CategoryBanners() {
                       </h3>
                     </div>
 
-                    <div className="flex items-center text-[10px] md:text-xs font-bold text-white/95 uppercase tracking-wider shrink-0 bg-black/20 rounded-t-lg py-1.5 px-1 md:px-3">
+                    <div className="w-full md:w-auto flex justify-end">
+                      <div className="flex items-center text-[10px] md:text-xs font-bold text-white/95 uppercase tracking-wider shrink-0 bg-black/20 rounded-t-lg py-1.5 px-1 md:px-3">
                       <div className="flex items-center gap-2 md:gap-3">
                         <div className="w-16 md:w-24 text-center">Stock</div>
                         <div className="w-20 md:w-28 text-center">Price</div>
                         <div className="w-16 md:w-[88px] text-center">Action</div>
                       </div>
+                    </div>
                     </div>
                   </div>
 
