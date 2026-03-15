@@ -2031,15 +2031,15 @@ const Shop = () => {
             <div className="p-4 bg-gray-50 dark:bg-[#09090b]/50 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
               <div className="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-700 pb-2">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Bank Name</span>
-                <span className="font-bold text-gray-900 dark:text-gray-100">Moniepoint</span>
+                <span className="font-bold text-gray-900 dark:text-gray-100">Palmpay</span>
               </div>
               <div className="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-700 pb-2">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Account Number</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-lg font-bold text-purple-600 dark:text-purple-400">8148056295</span>
+                  <span className="font-mono text-lg font-bold text-purple-600 dark:text-purple-400">8168447958</span>
                   <button 
                     onClick={() => {
-                      navigator.clipboard.writeText("8148056295");
+                      navigator.clipboard.writeText("8168447958");
                       toast.success("Account number copied!");
                     }}
                     className="p-1 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded transition-colors"
@@ -2050,7 +2050,7 @@ const Shop = () => {
               </div>
               <div className="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-700 pb-2">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Account Name</span>
-                <span className="font-bold text-gray-900 dark:text-gray-100">Nzube John</span>
+                <span className="font-bold text-gray-900 dark:text-gray-100">Okeke Victor Udochukwu</span>
               </div>
               <div className="flex justify-between items-center py-1">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Description / Narration</span>
@@ -2074,7 +2074,7 @@ const Shop = () => {
             <Button
               variant="outline"
               onClick={() => {
-                const details = `Bank: Moniepoint\nAccount: 8148056295\nName: Nzube John\nDescription: Bills`;
+                const details = `Bank: Palmpay\nAccount: 8168447958\nName: Okeke Victor Udochukwu\nDescription: Bills`;
                 navigator.clipboard.writeText(details);
                 toast.success("Bank details copied to clipboard!");
               }}
