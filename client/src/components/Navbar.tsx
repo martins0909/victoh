@@ -127,7 +127,7 @@ const Navbar = ({
                         <Menu className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-48 bg-white dark:bg-[#09090b] border-2 border-purple-500 rounded-xl overflow-hidden shadow-lg p-1">
+                    <DropdownMenuContent align="start" className="w-48 max-h-72 overflow-y-auto overflow-x-hidden bg-white dark:bg-[#09090b] border-2 border-purple-500 rounded-xl shadow-lg p-1">
                       {categories.length > 0 ? (
                         categories.map((cat) => (
                           <DropdownMenuItem 
@@ -177,7 +177,7 @@ const Navbar = ({
                       <ChevronDown className="h-4 w-4 ml-2" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-56 bg-white dark:bg-[#09090b] border-2 border-purple-500 rounded-xl overflow-hidden shadow-lg p-1">
+                  <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto overflow-x-hidden bg-white dark:bg-[#09090b] border-2 border-purple-500 rounded-xl shadow-lg p-1">
                     {shopCategoryList.map((cat) => (
                       <DropdownMenuItem
                         key={cat}
@@ -209,7 +209,7 @@ const Navbar = ({
                       </div>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-[#09090b] border-2 border-purple-500 rounded-xl overflow-hidden shadow-lg p-1">
+                  <DropdownMenuContent align="end" className="w-48 max-h-80 overflow-y-auto overflow-x-hidden bg-white dark:bg-[#09090b] border-2 border-purple-500 rounded-xl shadow-lg p-1">
                     {categories.length > 0 ? (
                       categories.map((cat) => (
                         <DropdownMenuItem
