@@ -6,6 +6,7 @@ import cors from "cors";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
+import crypto from "crypto";
 import axios from "axios";
 import { User, Admin, Cart, Payment, Product, CatalogProduct, PurchaseHistory, CatalogCategory } from "./models";
 import paymentsRouter from "./routes/payments";
@@ -18,6 +19,8 @@ app.use(cors({
     FRONTEND_URL, 
     'https://victohs.com',
     'https://www.victohs.com',
+    'https://viktohsstore.com',
+    'https://www.viktohsstore.com',
     'https://logs-online.com',
     'https://www.logs-online.com',
     'https://logs-online.vercel.app',
@@ -49,6 +52,50 @@ const PORT = parseInt(process.env.PORT || "4000", 10);
 const JWT_SECRET = process.env.JWT_SECRET || "change-this-secret";
 const MONGODB_URL = process.env.MONGODB_URL || "mongodb://localhost:27017/joybuy";
 const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET || "";
+
+const RESEND_API_KEY = (process.env.RESEND_API_KEY || "").trim();
+const RESEND_FROM = (process.env.RESEND_FROM || "").trim();
+
+function sha256Hex(input: string): string {
+  return crypto.createHash("sha256").update(input).digest("hex");
+}
+
+async function sendPasswordResetEmail(toEmail: string, resetLink: string): Promise<void> {
+  // Prefer Resend if configured
+  if (RESEND_API_KEY && RESEND_FROM) {
+    await axios.post(
+      "https://api.resend.com/emails",
+      {
+        from: RESEND_FROM,
+        to: [toEmail],
+        subject: "Reset your password",
+        html: `
+          <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; line-height: 1.5;">
+            <h2 style="margin:0 0 12px 0;">Password reset request</h2>
+            <p style="margin:0 0 12px 0;">Click the button below to reset your password. This link expires in 1 hour.</p>
+            <p style="margin:16px 0;">
+              <a href="${resetLink}" style="display:inline-block;background:#7c3aed;color:#fff;text-decoration:none;padding:10px 14px;border-radius:10px;">Reset Password</a>
+            </p>
+            <p style="margin:0 0 12px 0;">If you didn’t request this, you can ignore this email.</p>
+            <p style="margin:0;color:#6b7280;font-size:12px;">Link: ${resetLink}</p>
+          </div>
+        `.trim(),
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      }
+    );
+    return;
+  }
+
+  // Fallback: no provider configured
+  console.warn("Password reset requested but email provider not configured (set RESEND_API_KEY and RESEND_FROM)");
+  console.warn("Reset link:", resetLink);
+}
 
 // We'll start the server after connecting to MongoDB (so startup failures surface immediately)
 
@@ -137,19 +184,20 @@ app.post("/api/admin/login", async (req: Request, res: Response) => {
 // User registration
 app.post("/api/auth/register", async (req: Request, res: Response) => {
   try {
-    const { email, password, name } = req.body;
-    if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+    const { email, password, name } = req.body as { email?: string; password?: string; name?: string };
+    const normalizedEmail = (email || "").trim().toLowerCase();
+    if (!normalizedEmail || !(password || '').trim()) return res.status(400).json({ error: "Email and password are required" });
     
     // Check if user already exists
-    const existingUser = await User.findOne({ email }).exec();
+    const existingUser = await User.findOne({ email: normalizedEmail }).exec();
     if (existingUser) return res.status(400).json({ error: "Email already registered" });
     
     // Hash password (8 rounds = faster but still secure)
-    const hashedPassword = await bcrypt.hash(password, 8);
+    const hashedPassword = await bcrypt.hash(String(password).trim(), 8);
     
     // Create user
     const user = await User.create({
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       name: name || undefined,
       balance: 0
@@ -173,13 +221,15 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
 // User login
 app.post("/api/auth/login", async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+    const { email, password } = req.body as { email?: string; password?: string };
+    const normalizedEmail = (email || "").trim().toLowerCase();
+    const rawPassword = (password || '').trim();
+    if (!normalizedEmail || !rawPassword) return res.status(400).json({ error: "Email and password are required" });
     
-    const user = await User.findOne({ email }).exec();
+    const user = await User.findOne({ email: normalizedEmail }).exec();
     if (!user || !user.password) return res.status(401).json({ error: "Invalid credentials" });
     
-    const match = await bcrypt.compare(password, user.password);
+    const match = await bcrypt.compare(rawPassword, user.password);
     if (!match) return res.status(401).json({ error: "Invalid credentials" });
     
     res.json({ 
@@ -194,6 +244,80 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Failed to login" });
+  }
+});
+
+// Forgot password (send reset link)
+app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body as { email?: string };
+    const normalizedEmail = (email || "").trim().toLowerCase();
+    if (!normalizedEmail) return res.status(400).json({ error: "Email is required" });
+
+    const user = await User.findOne({ email: normalizedEmail }).exec();
+
+    // Always respond ok (avoid user enumeration)
+    if (!user) return res.json({ ok: true });
+
+    // Simple rate limit: allow one send every 30 seconds
+    const now = Date.now();
+    const lastSent = user.passwordResetLastSentAt ? user.passwordResetLastSentAt.getTime() : 0;
+    if (lastSent && now - lastSent < 30_000) {
+      return res.json({ ok: true, throttled: true });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    user.passwordResetTokenHash = sha256Hex(token);
+    user.passwordResetExpiresAt = new Date(now + 60 * 60 * 1000); // 1 hour
+    user.passwordResetLastSentAt = new Date(now);
+    await user.save();
+
+    const frontendBase = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+    const resetLink = `${frontendBase}/reset-password?token=${encodeURIComponent(token)}`;
+
+    await sendPasswordResetEmail(normalizedEmail, resetLink);
+
+    // In production we never include resetLink in the response
+    if ((process.env.NODE_ENV || "").toLowerCase() !== "production") {
+      return res.json({ ok: true, resetLink });
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Forgot password error:", err);
+    return res.status(500).json({ error: "Failed to process request" });
+  }
+});
+
+// Reset password (exchange token for new password)
+app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
+  try {
+    const { token, password } = req.body as { token?: string; password?: string };
+    const resetToken = (token || "").trim();
+    const newPassword = (password || "").trim();
+
+    if (!resetToken) return res.status(400).json({ error: "Reset token is required" });
+    if (!newPassword) return res.status(400).json({ error: "Password is required" });
+    if (newPassword.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
+
+    const tokenHash = sha256Hex(resetToken);
+    const user = await User.findOne({
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpiresAt: { $gt: new Date() },
+    }).exec();
+
+    if (!user) return res.status(400).json({ error: "Invalid or expired reset link" });
+
+    user.password = await bcrypt.hash(newPassword, 8);
+    user.passwordResetTokenHash = undefined;
+    user.passwordResetExpiresAt = undefined;
+    user.passwordResetLastSentAt = undefined;
+    await user.save();
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Reset password error:", err);
+    return res.status(500).json({ error: "Failed to reset password" });
   }
 });
 

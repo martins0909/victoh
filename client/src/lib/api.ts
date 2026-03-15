@@ -1,5 +1,5 @@
 // Prefer production API by default; override with VITE_API_URL for local dev
-export const API_BASE = import.meta.env.VITE_API_URL ?? "https://logs-online-api.onrender.com";
+export const API_BASE = import.meta.env.VITE_API_URL ?? "https://api.viktohsstore.com";
 
 export async function apiFetch(path: string, opts: RequestInit = {}) {
   const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;

@@ -9,6 +9,7 @@ import Shop from "./pages/Shop";
 import Rules from "./pages/Rules";
 import Faq from "./pages/Faq";
 import Admin from "./pages/Admin";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import Footer from "@/components/Footer";
 
@@ -28,6 +29,7 @@ const App = () => (
               <Route path="/shop" element={<Shop />} />
               <Route path="/rules" element={<Rules />} />
               <Route path="/faq" element={<Faq />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/admin/*" element={<Admin />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

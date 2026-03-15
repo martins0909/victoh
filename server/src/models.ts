@@ -34,6 +34,9 @@ export interface IUser extends Document {
   name?: string;
   password?: string;
   balance?: number;
+  passwordResetTokenHash?: string;
+  passwordResetExpiresAt?: Date;
+  passwordResetLastSentAt?: Date;
   createdAt: Date;
 }
 
@@ -152,10 +155,13 @@ const PaymentSchema = new Schema<IPayment>({
 });
 
 const UserSchema = new Schema<IUser>({
-  email: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true, trim: true, lowercase: true },
   name: { type: String },
   password: { type: String },
   balance: { type: Number, default: 0 },
+  passwordResetTokenHash: { type: String },
+  passwordResetExpiresAt: { type: Date },
+  passwordResetLastSentAt: { type: Date },
   createdAt: { type: Date, default: Date.now },
 });
 

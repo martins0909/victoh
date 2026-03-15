@@ -18,6 +18,9 @@ const Auth = () => {
   const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("");
   const [resetEmail, setResetEmail] = useState("");
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [showWakingMessage, setShowWakingMessage] = useState(false);
@@ -135,7 +138,21 @@ const Auth = () => {
     }
   };
 
-  const handleForgotPassword = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!isResetDialogOpen) {
+      setResetSent(false);
+      setResendCooldown(0);
+      setIsSendingReset(false);
+    }
+  }, [isResetDialogOpen]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [resendCooldown]);
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!resetEmail) {
@@ -143,17 +160,20 @@ const Auth = () => {
       return;
     }
 
-    // Mock password reset - in real app this would call backend API
-    const mockUsers = JSON.parse(localStorage.getItem("users") || "[]");
-    const userExists = mockUsers.find((u: { email: string }) => u.email === resetEmail);
-    
-    if (userExists) {
-      // In a real app, this would send an email with a reset link
-      toast.success(`Password reset link sent to ${resetEmail}. Check your inbox!`);
-      setResetEmail("");
-      setIsResetDialogOpen(false);
-    } else {
-      toast.error("No account found with this email address");
+    setIsSendingReset(true);
+    try {
+      await apiFetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail }),
+      });
+      setResetSent(true);
+      setResendCooldown(30);
+      toast.success("If an account exists, a reset link has been sent. Check your inbox.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send reset link");
+    } finally {
+      setIsSendingReset(false);
     }
   };
 
@@ -299,6 +319,12 @@ const Auth = () => {
                               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-purple-600 transition-colors" />
                             </div>
                           </div>
+                          {resetSent && (
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
+                              Didn’t get the email? You can resend the reset link.
+                            </div>
+                          )}
+
                           <div className="flex gap-3">
                             <Button
                               type="button"
@@ -306,13 +332,20 @@ const Auth = () => {
                               className="flex-1 h-11 rounded-xl border-2 hover:bg-gray-50 transition-all duration-300"
                               onClick={() => setIsResetDialogOpen(false)}
                             >
-                              Cancel
+                              Close
                             </Button>
-                            <Button 
-                              type="submit" 
+                            <Button
+                              type="submit"
+                              disabled={isSendingReset || resendCooldown > 0}
                               className="flex-1 h-11 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
                             >
-                              Send Reset Link
+                              {isSendingReset
+                                ? "Sending..."
+                                : resetSent
+                                  ? resendCooldown > 0
+                                    ? `Resend (${resendCooldown}s)`
+                                    : "Resend"
+                                  : "Send Reset Link"}
                             </Button>
                           </div>
                         </form>
