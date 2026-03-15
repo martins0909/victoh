@@ -136,7 +136,7 @@ export default function CategoryBanners() {
                             <div className="p-2 md:p-3 flex-1 flex flex-col md:flex-row md:items-center justify-between gap-1 md:gap-4 overflow-hidden">
                               <div className="flex-1 min-w-0 pr-2">
                                 <h4 className="text-sm md:text-lg font-bold text-gray-900 dark:text-white truncate">{product.name}</h4>
-                                <p className="text-[10px] md:text-sm text-gray-600 dark:text-gray-400 truncate w-full">
+                                <p className="text-[10px] md:text-sm text-gray-600 dark:text-gray-400 whitespace-normal break-words md:truncate w-full">
                                   {product.description}
                                 </p>
                               </div>
