@@ -154,8 +154,9 @@ const Auth = () => {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!resetEmail) {
+
+    const normalizedResetEmail = resetEmail.trim().toLowerCase();
+    if (!normalizedResetEmail) {
       toast.error("Please enter your email address");
       return;
     }
@@ -165,7 +166,7 @@ const Auth = () => {
       await apiFetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail }),
+        body: JSON.stringify({ email: normalizedResetEmail }),
       });
       setResetSent(true);
       setResendCooldown(30);
@@ -282,77 +283,77 @@ const Auth = () => {
                       Waking server... This takes a moment after inactivity
                     </div>
                   )}
-                  
-                  <div className="text-center pt-2">
-                    <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button variant="link" className="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-medium">
-                          Forgot Password?
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="bg-white/95 backdrop-blur-xl border-2 border-white/60 shadow-2xl dark:bg-black/95 dark:border-gray-800">
-                        <DialogHeader>
-                          <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-700 to-purple-800 dark:from-purple-400 dark:to-purple-500 flex items-center gap-2">
-                            <Mail className="w-5 h-5 text-purple-600" />
-                            Reset Your Password
-                          </DialogTitle>
-                          <DialogDescription className="text-gray-600 dark:text-gray-400">
-                            Enter your email address and we'll send you a link to reset your password.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <form onSubmit={handleForgotPassword} className="space-y-5 mt-4">
-                          <div className="space-y-2">
-                            <label htmlFor="reset-email" className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                              <Mail className="w-4 h-4 text-purple-600" />
-                              Email Address
-                            </label>
-                            <div className="relative group">
-                              <Input
-                                id="reset-email"
-                                type="email"
-                                placeholder="your@email.com"
-                                value={resetEmail}
-                                onChange={(e) => setResetEmail(e.target.value)}
-                                required
-                                className="pl-11 h-12 border-2 border-gray-200 focus:border-purple-500 transition-all duration-300 rounded-xl bg-white/80 backdrop-blur-sm dark:border-gray-700 dark:bg-[#09090b]/80 dark:text-gray-100 dark:placeholder:text-gray-500"
-                              />
-                              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-purple-600 transition-colors" />
-                            </div>
-                          </div>
-                          {resetSent && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              Didn’t get the email? You can resend the reset link.
-                            </div>
-                          )}
-
-                          <div className="flex gap-3">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="flex-1 h-11 rounded-xl border-2 hover:bg-gray-50 transition-all duration-300"
-                              onClick={() => setIsResetDialogOpen(false)}
-                            >
-                              Close
-                            </Button>
-                            <Button
-                              type="submit"
-                              disabled={isSendingReset || resendCooldown > 0}
-                              className="flex-1 h-11 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-                            >
-                              {isSendingReset
-                                ? "Sending..."
-                                : resetSent
-                                  ? resendCooldown > 0
-                                    ? `Resend (${resendCooldown}s)`
-                                    : "Resend"
-                                  : "Send Reset Link"}
-                            </Button>
-                          </div>
-                        </form>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
                 </form>
+
+                <div className="text-center pt-2">
+                  <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="link" className="text-sm text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-medium">
+                        Forgot Password?
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-white/95 backdrop-blur-xl border-2 border-white/60 shadow-2xl dark:bg-black/95 dark:border-gray-800">
+                      <DialogHeader>
+                        <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-700 to-purple-800 dark:from-purple-400 dark:to-purple-500 flex items-center gap-2">
+                          <Mail className="w-5 h-5 text-purple-600" />
+                          Reset Your Password
+                        </DialogTitle>
+                        <DialogDescription className="text-gray-600 dark:text-gray-400">
+                          Enter your email address and we'll send you a link to reset your password.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={handleForgotPassword} className="space-y-5 mt-4">
+                        <div className="space-y-2">
+                          <label htmlFor="reset-email" className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-purple-600" />
+                            Email Address
+                          </label>
+                          <div className="relative group">
+                            <Input
+                              id="reset-email"
+                              type="email"
+                              placeholder="your@email.com"
+                              value={resetEmail}
+                              onChange={(e) => setResetEmail(e.target.value)}
+                              required
+                              className="pl-11 h-12 border-2 border-gray-200 focus:border-purple-500 transition-all duration-300 rounded-xl bg-white/80 backdrop-blur-sm dark:border-gray-700 dark:bg-[#09090b]/80 dark:text-gray-100 dark:placeholder:text-gray-500"
+                            />
+                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-purple-600 transition-colors" />
+                          </div>
+                        </div>
+                        {resetSent && (
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
+                            Didn’t get the email? You can resend the reset link.
+                          </div>
+                        )}
+
+                        <div className="flex gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="flex-1 h-11 rounded-xl border-2 hover:bg-gray-50 transition-all duration-300"
+                            onClick={() => setIsResetDialogOpen(false)}
+                          >
+                            Close
+                          </Button>
+                          <Button
+                            type="submit"
+                            disabled={isSendingReset || resendCooldown > 0}
+                            className="flex-1 h-11 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                          >
+                            {isSendingReset
+                              ? "Sending..."
+                              : resetSent
+                                ? resendCooldown > 0
+                                  ? `Resend (${resendCooldown}s)`
+                                  : "Resend"
+                                : "Send Reset Link"}
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
