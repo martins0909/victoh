@@ -817,7 +817,7 @@ const Shop = () => {
           
           {/* Title moved below banner */}
           <h1 className="mt-2 md:mt-6 text-center text-3xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500 tracking-tight">
-            Shop Standard LOGs
+            Shop Correct LOGs
           </h1>
 
           {/* Welcome badge positioned below title */}
