@@ -402,12 +402,6 @@ export default function AdminCatalog() {
       return;
     }
 
-    // Check if serial already exists in this product
-    if (selectedProduct.serialNumbers?.some(s => s.serial === newSerial.trim())) {
-      toast.error("Serial number already exists");
-      return;
-    }
-
     const serial: SerialNumber = {
       id: crypto.randomUUID(),
       serial: newSerial.trim(),
@@ -480,19 +474,16 @@ export default function AdminCatalog() {
             const serialContent = row.filter(cell => cell && typeof cell === 'string' && cell.trim()).join(", ").trim();
            
             if (serialContent) {
-              const exists = (selectedProduct.serialNumbers || []).some(s => s.serial === serialContent);
-              if (!exists && !newSerials.some(s => s.serial === serialContent)) {
-                newSerials.push({
-                  id: crypto.randomUUID(),
-                  serial: serialContent,
-                  isUsed: false,
-                });
-              }
+              newSerials.push({
+                id: crypto.randomUUID(),
+                serial: serialContent,
+                isUsed: false,
+              });
             }
           }
 
           if (newSerials.length === 0) {
-            toast.info("No new serial numbers to add (duplicates or empty file)");
+            toast.info("No serial numbers to add");
             setUploadingCSV(false);
             return;
           }
