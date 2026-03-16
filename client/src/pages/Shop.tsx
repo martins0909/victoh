@@ -951,7 +951,7 @@ const Shop = () => {
 
                       return (
                       <div key={category} id={`category-${category}`} className="scroll-mt-24">
-                        <div className="flex items-center justify-between mb-4 md:mb-6 px-3 md:px-0">
+                        <div className="flex items-center justify-between mb-4 md:mb-6 px-4 md:px-0">
                           <h3 className="text-xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500 border-b-2 border-gray-200 dark:border-gray-800 pb-2 flex-1">
                             {category}
                           </h3>
@@ -964,13 +964,13 @@ const Shop = () => {
                             return (
                             <Card 
                               key={product.id} 
-                              className="bg-white/90 backdrop-blur-xl shadow-lg border-2 border-l-0 border-r-0 md:border-l-2 md:border-r-2 border-white/60 hover:shadow-xl transition-all duration-300 group animate-in fade-in slide-in-from-bottom dark:bg-black/90 dark:border-gray-800 mx-0 rounded-none md:rounded-lg"
+                              className="bg-white/90 backdrop-blur-xl shadow-lg border-2 border-l-0 border-r-0 md:border-l-2 md:border-r-2 border-white/60 hover:shadow-xl transition-all duration-300 group animate-in fade-in slide-in-from-bottom dark:bg-black/90 dark:border-gray-800 mx-2 md:mx-0 rounded-lg md:rounded-lg overflow-hidden"
                               style={{ animationDelay: `${index * 50}ms` }}
                             >
                               <CardContent className="p-0">
-                                <div className="flex flex-col md:flex-row md:items-center gap-0 md:gap-4 md:p-4 p-3">
+                                <div className="flex flex-col md:flex-row md:items-center gap-0 md:gap-4 md:p-4 p-3 min-w-0">
                                   {/* Top Section: Image and Info (Mobile Full Width) */}
-                                  <div className="flex items-start gap-3 p-0 md:p-0 md:flex-1">
+                                  <div className="flex items-start gap-3 p-0 md:p-0 md:flex-1 min-w-0 w-full">
                                     {/* Small Product Image */}
                                     <div className="relative overflow-hidden rounded-lg flex-shrink-0">
                                       <div className="absolute inset-0 bg-gradient-to-br from-purple-400/0 to-purple-400/0 group-hover:from-purple-400/20 group-hover:to-purple-400/20 transition-all duration-300 z-10"></div>
@@ -998,8 +998,8 @@ const Shop = () => {
                                           </Badge>
                                         )}
                                       </div>
-                                      <div className="flex items-center justify-between gap-3 w-full">
-                                        <h3 className="font-bold text-sm md:text-base lg:text-lg mb-0.5 md:mb-1 bg-clip-text text-transparent bg-gradient-to-r from-purple-700 to-purple-800 dark:from-purple-400 dark:to-purple-500 truncate md:whitespace-normal flex-1 min-w-0">{product.name}</h3>
+                                      <div className="flex items-center justify-between gap-3 w-full min-w-0">
+                                        <h3 className="font-bold text-sm md:text-base lg:text-lg mb-0.5 md:mb-1 bg-clip-text text-transparent bg-gradient-to-r from-purple-700 to-purple-800 dark:from-purple-400 dark:to-purple-500 whitespace-normal break-words leading-tight md:truncate flex-1 min-w-0">{product.name}</h3>
                                       </div>
                                     </div>
                                     
@@ -1017,8 +1017,8 @@ const Shop = () => {
                                   </div>
 
                                   {/* Description (Mobile Full Width) */}
-                                  <div className="px-0 pb-3 md:hidden">
-                                    <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-5">{product.description}</p>
+                                  <div className="px-0 pb-3 md:hidden min-w-0">
+                                    <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-normal break-words leading-relaxed">{product.description}</p>
                                   </div>
 
                                   {/* Desktop Layout: Description, Price, Button */}
@@ -1042,25 +1042,25 @@ const Shop = () => {
                                   </div>
 
                                   {/* Buy Button and Price (Mobile Full Width) */}
-                                  <div className="pl-0 pr-3 pb-3 md:p-0 md:flex-shrink-0 md:hidden flex items-center justify-between gap-2">
+                                  <div className="pl-0 pr-0 pb-3 md:p-0 md:flex-shrink-0 md:hidden flex flex-wrap items-start justify-between gap-2 min-w-0">
                                     <Button 
                                       onClick={() => handleBuyClick(product)}
                                       disabled={availableStock === 0}
-                                      className={`h-8 px-3 ${availableStock === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 rounded-lg text-xs`}
+                                      className={`h-8 px-3 shrink-0 ${availableStock === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 rounded-lg text-xs`}
                                     >
                                       <ShoppingCart className="h-3 w-3 mr-1" />
                                       {availableStock === 0 ? 'Out of Stock' : 'Buy Now'}
                                     </Button>
-                                    <div className="flex flex-col items-end">
-                                      <span className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-400 dark:from-purple-400 dark:to-purple-300">
+                                    <div className="flex flex-col items-end min-w-0 max-w-full">
+                                      <span className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-400 dark:from-purple-400 dark:to-purple-300 break-all text-right leading-tight">
                                         ₦{product.price.toFixed(2)}
                                       </span>
                                       {availableStock > 0 ? (
-                                        <Badge variant="outline" className="mt-1 px-1.5 py-0.5 text-[10px] bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:border-purple-800 block">
+                                        <Badge variant="outline" className="mt-1 px-1.5 py-0.5 text-[10px] bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:border-purple-800 block whitespace-normal break-words text-center max-w-[110px]">
                                           {availableStock} in stock
                                         </Badge>
                                       ) : (
-                                        <Badge variant="outline" className="mt-1 px-1.5 py-0.5 text-[10px] bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800 block">
+                                        <Badge variant="outline" className="mt-1 px-1.5 py-0.5 text-[10px] bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800 block whitespace-normal break-words text-center max-w-[110px]">
                                           Out of stock
                                         </Badge>
                                       )}
@@ -1085,7 +1085,7 @@ const Shop = () => {
 
                       return (
                         <>
-                          <div className="flex items-center justify-between mb-4 md:mb-6 px-3 md:px-0">
+                          <div className="flex items-center justify-between mb-4 md:mb-6 px-4 md:px-0">
                             <h3 className="text-xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500 border-b-2 border-gray-200 dark:border-gray-800 pb-2 flex-1">
                               {activeCategory}
                             </h3>
@@ -1098,13 +1098,13 @@ const Shop = () => {
                         return (
                         <Card 
                           key={product.id} 
-                          className="bg-white/90 backdrop-blur-xl shadow-lg border-2 border-l-0 border-r-0 md:border-l-2 md:border-r-2 border-white/60 hover:shadow-xl transition-all duration-300 group animate-in fade-in slide-in-from-bottom dark:bg-black/90 dark:border-gray-800 mx-0 rounded-none md:rounded-lg"
+                          className="bg-white/90 backdrop-blur-xl shadow-lg border-2 border-l-0 border-r-0 md:border-l-2 md:border-r-2 border-white/60 hover:shadow-xl transition-all duration-300 group animate-in fade-in slide-in-from-bottom dark:bg-black/90 dark:border-gray-800 mx-2 md:mx-0 rounded-lg md:rounded-lg overflow-hidden"
                           style={{ animationDelay: `${index * 50}ms` }}
                         >
                           <CardContent className="p-0">
-                            <div className="flex flex-col md:flex-row md:items-center gap-0 md:gap-4 md:p-4 p-3">
+                            <div className="flex flex-col md:flex-row md:items-center gap-0 md:gap-4 md:p-4 p-3 min-w-0">
                               {/* Top Section: Image and Info (Mobile Full Width) */}
-                              <div className="flex items-start gap-3 p-0 md:p-0 md:flex-1">
+                              <div className="flex items-start gap-3 p-0 md:p-0 md:flex-1 min-w-0 w-full">
                                 {/* Small Product Image */}
                                 <div className="relative overflow-hidden rounded-lg flex-shrink-0">
                                   <div className="absolute inset-0 bg-gradient-to-br from-purple-400/0 to-purple-400/0 group-hover:from-purple-400/20 group-hover:to-purple-400/20 transition-all duration-300 z-10"></div>
@@ -1132,7 +1132,7 @@ const Shop = () => {
                                       </Badge>
                                     )} 
                                   </div>
-                                  <h3 className="font-bold text-sm md:text-base lg:text-lg mb-0.5 md:mb-1 bg-clip-text text-transparent bg-gradient-to-r from-purple-700 to-purple-800 dark:from-purple-400 dark:to-purple-500 truncate md:whitespace-normal">{product.name}</h3>
+                                  <h3 className="font-bold text-sm md:text-base lg:text-lg mb-0.5 md:mb-1 bg-clip-text text-transparent bg-gradient-to-r from-purple-700 to-purple-800 dark:from-purple-400 dark:to-purple-500 whitespace-normal break-words leading-tight md:truncate">{product.name}</h3>
                                   {/* Desktop-only stock line under product name to avoid name overflow */}
                                   {availableStock > 0 ? (
                                     <div className="hidden md:block mt-1">
@@ -1154,8 +1154,8 @@ const Shop = () => {
                               </div>
 
                               {/* Description (Mobile Full Width) */}
-                              <div className="px-0 pb-3 md:hidden">
-                                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-5">{product.description}</p>
+                              <div className="px-0 pb-3 md:hidden min-w-0">
+                                <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-normal break-words leading-relaxed">{product.description}</p>
                               </div>
 
                               {/* Desktop Layout: Description, Price, Button */}
@@ -1179,25 +1179,25 @@ const Shop = () => {
                               </div>
 
                               {/* Buy Button and Price (Mobile Full Width) */}
-                              <div className="pl-0 pr-3 pb-3 md:p-0 md:flex-shrink-0 md:hidden flex items-center justify-between gap-2">
+                              <div className="pl-0 pr-0 pb-3 md:p-0 md:flex-shrink-0 md:hidden flex flex-wrap items-start justify-between gap-2 min-w-0">
                                 <Button 
                                   onClick={() => handleBuyClick(product)}
                                   disabled={availableStock === 0}
-                                  className={`h-8 px-3 ${availableStock === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 rounded-lg text-xs`}
+                                  className={`h-8 px-3 shrink-0 ${availableStock === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'} text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 rounded-lg text-xs`}
                                 >
                                   <ShoppingCart className="h-3 w-3 mr-1" />
                                   {availableStock === 0 ? 'Out of Stock' : 'Buy Now'}
                                 </Button>
-                                <div className="flex flex-col items-end">
-                                  <span className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500">
+                                <div className="flex flex-col items-end min-w-0 max-w-full">
+                                  <span className="text-base font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500 break-all text-right leading-tight">
                                     ₦{product.price.toFixed(2)}
                                   </span>
                                   {availableStock > 0 ? (
-                                    <Badge variant="outline" className="mt-1 px-1.5 py-0.5 text-[10px] bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:border-purple-800 block">
+                                    <Badge variant="outline" className="mt-1 px-1.5 py-0.5 text-[10px] bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:border-purple-800 block whitespace-normal break-words text-center max-w-[110px]">
                                       {availableStock} in stock
                                     </Badge>
                                   ) : (
-                                    <Badge variant="outline" className="mt-1 px-1.5 py-0.5 text-[10px] bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800 block">
+                                    <Badge variant="outline" className="mt-1 px-1.5 py-0.5 text-[10px] bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800 block whitespace-normal break-words text-center max-w-[110px]">
                                       Out of stock
                                     </Badge>
                                   )}
