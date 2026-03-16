@@ -71,7 +71,6 @@ const Shop = () => {
   const [showCustomerCareOptions, setShowCustomerCareOptions] = useState(false);
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [api, setApi] = useState<CarouselApi>();
 
   useEffect(() => {
@@ -410,21 +409,6 @@ const Shop = () => {
 
   // Get categories that have products (excluding "All")
   const categoriesWithProducts = categories.filter(cat => cat !== "All" && groupedProducts[cat]?.length > 0);
-
-  // Function to toggle category expansion
-  const toggleCategoryExpansion = (category: string) => {
-    setExpandedCategories(prev => ({
-      ...prev,
-      [category]: !prev[category]
-    }));
-  };
-
-  // Function to get products to display for a category (5 or all)
-  const getProductsToDisplay = (category: string) => {
-    const products = groupedProducts[category] || [];
-    const isExpanded = expandedCategories[category];
-    return isExpanded ? products : products.slice(0, 5);
-  };
 
   // Function to scroll to category section
   const scrollToCategory = (category: string) => {
@@ -963,9 +947,7 @@ const Shop = () => {
                   <div className="space-y-8 md:space-y-12">
                     {categoriesWithProducts.map((category) => {
                       const categoryProducts = groupedProducts[category] || [];
-                      const displayedProducts = getProductsToDisplay(category);
-                      const hasMore = categoryProducts.length > 5;
-                      const isExpanded = expandedCategories[category];
+                      const displayedProducts = categoryProducts;
 
                       return (
                       <div key={category} id={`category-${category}`} className="scroll-mt-24">
@@ -1099,9 +1081,7 @@ const Shop = () => {
                   <div id={`category-${activeCategory}`} className="scroll-mt-24">
                     {(() => {
                       const categoryProducts = groupedProducts[activeCategory] || [];
-                      const displayedProducts = getProductsToDisplay(activeCategory);
-                      const hasMore = categoryProducts.length > 5;
-                      const isExpanded = expandedCategories[activeCategory];
+                      const displayedProducts = categoryProducts;
 
                       return (
                         <>
