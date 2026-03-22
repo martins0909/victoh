@@ -657,7 +657,8 @@ app.get("/api/catalog", async (req: Request, res: Response) => {
     const cached = cacheGet<any[]>(cacheKey);
     if (cached) return res.json(cached);
 
-    console.time("Catalog aggregation");
+    const reqId = Math.random().toString(36).substring(7);
+    console.time(`Catalog aggregation - ${reqId}`);
     const products = await CatalogProduct.aggregate([
       {
         $project: {
@@ -682,7 +683,7 @@ app.get("/api/catalog", async (req: Request, res: Response) => {
       },
       { $sort: { createdAt: -1 } },
     ]);
-    console.timeEnd("Catalog aggregation");
+    console.timeEnd(`Catalog aggregation - ${reqId}`);
 
     cacheSet(cacheKey, products, 60_000); // 60 seconds Cache
     res.json(products);
