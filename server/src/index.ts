@@ -640,6 +640,9 @@ app.get("/api/health", (req: Request, res: Response) => {
 
 // ======== CATALOG PRODUCT ENDPOINTS ========
 
+// Global variable to hold the active database query "promise" for the catalog
+let activeCatalogFetch: Promise<any[]> | null = null;
+
 // Get all catalog products
 app.get("/api/catalog", async (req: Request, res: Response) => {
   try {
@@ -651,45 +654,61 @@ app.get("/api/catalog", async (req: Request, res: Response) => {
       return res.json(products);
     }
 
-    // Public response: no serialNumbers (security + performance). Provide availableStock only.
+    // Public response: no serialNumbers. Provide availableStock only.
     res.setHeader("Cache-Control", "public, max-age=30");
     const cacheKey = "catalog:public:v1";
     const cached = cacheGet<any[]>(cacheKey);
     if (cached) return res.json(cached);
 
+    // If another visitor is currently triggering the DB query, just wait for it to finish!
+    if (activeCatalogFetch) {
+      console.log("Waiting for existing catalog query to finish...");
+      const products = await activeCatalogFetch;
+      return res.json(products);
+    }
+
+    // Otherwise, start the DB query and save the 'Promise' in the global variable
     const reqId = Math.random().toString(36).substring(7);
-    console.time(`Catalog aggregation - ${reqId}`);
-    const products = await CatalogProduct.aggregate([
-      {
-        $project: {
-          _id: 0,
-          id: 1,
-          name: 1,
-          description: 1,
-          price: 1,
-          image: 1,
-          category: 1,
-          createdAt: 1,
-          availableStock: {
-            $size: {
-              $filter: {
-                input: { $ifNull: ["$serialNumbers", []] },
-                as: "s",
-                cond: { $eq: ["$$s.isUsed", false] },
+    activeCatalogFetch = (async () => {
+      console.time(`Catalog aggregation - ${reqId}`);
+      const products = await CatalogProduct.aggregate([
+        {
+          $project: {
+            _id: 0,
+            id: 1,
+            name: 1,
+            description: 1,
+            price: 1,
+            image: 1,
+            category: 1,
+            createdAt: 1,
+            availableStock: {
+              $size: {
+                $filter: {
+                  input: { $ifNull: ["$serialNumbers", []] },
+                  as: "s",
+                  cond: { $eq: ["$$s.isUsed", false] },
+                },
               },
             },
           },
         },
-      },
-      { $sort: { createdAt: -1 } },
-    ]);
-    console.timeEnd(`Catalog aggregation - ${reqId}`);
+        { $sort: { createdAt: -1 } },
+      ]);
+      console.timeEnd(`Catalog aggregation - ${reqId}`);
+      
+      cacheSet(cacheKey, products, 60_000); // 60 seconds Cache
+      return products;
+    })();
 
-    cacheSet(cacheKey, products, 60_000); // 60 seconds Cache
+    const products = await activeCatalogFetch;
     res.json(products);
   } catch (err) {
     console.error("Error fetching catalog products:", err);
     res.status(500).json({ error: "Failed to fetch catalog products" });
+  } finally {
+    // Once it breaks or finishes, clear the active fetch so new ones can start later
+    activeCatalogFetch = null;
   }
 });
 
