@@ -670,35 +670,29 @@ app.get("/api/catalog", async (req: Request, res: Response) => {
     // Otherwise, start the DB query and save the 'Promise' in the global variable
     const reqId = Math.random().toString(36).substring(7);
     activeCatalogFetch = (async () => {
-      console.time(`Catalog aggregation - ${reqId}`);
-      const products = await CatalogProduct.aggregate([
-        {
-          $project: {
-            _id: 0,
-            id: 1,
-            name: 1,
-            description: 1,
-            price: 1,
-            image: 1,
-            category: 1,
-            createdAt: 1,
-            availableStock: {
-              $size: {
-                $filter: {
-                  input: { $ifNull: ["$serialNumbers", []] },
-                  as: "s",
-                  cond: { $eq: ["$$s.isUsed", false] },
-                },
-              },
-            },
-          },
-        },
-        { $sort: { createdAt: -1 } },
-      ]);
-      console.timeEnd(`Catalog aggregation - ${reqId}`);
+      console.time(`Catalog fetch - ${reqId}`);
+      // Super fast query! No more array unwinding.
+      const products = await CatalogProduct.find({}, "-serialNumbers")
+        .sort({ createdAt: -1 })
+        .lean()
+        .exec();
+        
+      // Ensure frontend sees 'availableStock' property matching the cached count
+      const mappedProducts = products.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        image: p.image,
+        category: p.category,
+        createdAt: p.createdAt,
+        availableStock: p.cachedAvailableStock || 0,
+      }));
+
+      console.timeEnd(`Catalog fetch - ${reqId}`);
       
-      cacheSet(cacheKey, products, 60_000); // 60 seconds Cache
-      return products;
+      cacheSet(cacheKey, mappedProducts, 60_000); // 60 seconds Cache
+      return mappedProducts;
     })();
 
     const products = await activeCatalogFetch;
@@ -742,6 +736,11 @@ app.put("/api/catalog/:id", requireAdmin, async (req: Request, res: Response) =>
   try {
     const { id } = req.params;
     const updates = req.body;
+    
+    if (updates.serialNumbers) {
+      updates.cachedAvailableStock = updates.serialNumbers.filter((s: any) => !s.isUsed).length;
+    }
+
     const product = await CatalogProduct.findOneAndUpdate(
       { id },
       updates,
@@ -967,6 +966,9 @@ app.post("/api/purchase/complete", async (req: Request, res: Response) => {
             s.usedAt = now;
           }
         }
+        
+        const remainingAvailable = serials.filter((s: any) => !s.isUsed).length;
+        (catalogProduct as any).cachedAvailableStock = remainingAvailable;
 
         await (catalogProduct as any).save({ session });
 
@@ -989,10 +991,6 @@ app.post("/api/purchase/complete", async (req: Request, res: Response) => {
           { $inc: { balance: -totalPrice } },
           { new: true, session }
         ).exec();
-
-        const remainingAvailable = (Array.isArray((catalogProduct as any).serialNumbers)
-          ? (catalogProduct as any).serialNumbers.filter((s: any) => !s.isUsed).length
-          : 0);
 
         responsePayload = {
           success: true,

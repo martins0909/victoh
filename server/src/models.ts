@@ -87,6 +87,7 @@ export interface ICatalogProduct extends Document {
   image: string;
   category: string;
   serialNumbers?: ISerialNumber[];
+  cachedAvailableStock?: number;
   createdAt: Date;
 }
 
@@ -200,6 +201,7 @@ const CatalogProductSchema = new Schema<ICatalogProduct>({
   image: { type: String, required: true },
   category: { type: String, required: true },
   serialNumbers: { type: [SerialNumberSchema], default: [] },
+  cachedAvailableStock: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });
 
