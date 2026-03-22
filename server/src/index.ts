@@ -643,6 +643,29 @@ app.get("/api/health", (req: Request, res: Response) => {
 // Global variable to hold the active database query "promise" for the catalog
 let activeCatalogFetch: Promise<any[]> | null = null;
 
+// Helper to serve product images directly and cache them
+app.get("/api/catalog/:id/image", async (req: Request, res: Response) => {
+  try {
+    const product = await CatalogProduct.findOne({ id: req.params.id }, "image").lean();
+    if (!product || !product.image) return res.status(404).send("Not found");
+
+    const match = product.image.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (match) {
+      const contentType = match[1];
+      const buffer = Buffer.from(match[2], 'base64');
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      return res.send(buffer);
+    }
+    
+    if (product.image.startsWith('http')) return res.redirect(product.image);
+    res.setHeader("Content-Type", "text/plain");
+    res.send(product.image);
+  } catch (err) {
+    res.status(500).send("Error serving image");
+  }
+});
+
 // Get all catalog products
 app.get("/api/catalog", async (req: Request, res: Response) => {
   try {
@@ -650,8 +673,9 @@ app.get("/api/catalog", async (req: Request, res: Response) => {
 
     // Admins can see serialNumbers (needed for inventory management)
     if (isAdmin) {
-      const products = await CatalogProduct.find().sort({ createdAt: -1 }).lean();
-      return res.json(products);
+      const products = await CatalogProduct.find({}, "-image").sort({ createdAt: -1 }).lean();
+      const mapped = products.map(p => ({ ...p, image: `/api/catalog/${p.id}/image` }));
+      return res.json(mapped);
     }
 
     // Public response: no serialNumbers. Provide availableStock only.
@@ -672,7 +696,7 @@ app.get("/api/catalog", async (req: Request, res: Response) => {
     activeCatalogFetch = (async () => {
       console.time(`Catalog fetch - ${reqId}`);
       // Super fast query! No more array unwinding.
-      const products = await CatalogProduct.find({}, "-serialNumbers")
+      const products = await CatalogProduct.find({}, "-serialNumbers -image")
         .sort({ createdAt: -1 })
         .lean()
         .exec();
@@ -683,7 +707,7 @@ app.get("/api/catalog", async (req: Request, res: Response) => {
         name: p.name,
         description: p.description,
         price: p.price,
-        image: p.image,
+        image: `/api/catalog/${p.id}/image`,
         category: p.category,
         createdAt: p.createdAt,
         availableStock: p.cachedAvailableStock || 0,
@@ -847,8 +871,9 @@ app.delete("/api/catalog-categories/:id", requireAdmin, async (req: Request, res
 app.get("/api/purchase-history/:userId", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const history = await PurchaseHistory.find({ userId }).sort({ purchaseDate: -1 }).lean();
-    res.json(history);
+    const history = await PurchaseHistory.find({ userId }, "-image").sort({ purchaseDate: -1 }).lean();
+    const mapped = history.map(h => ({ ...h, image: `/api/catalog/${h.productId}/image` }));
+    res.json(mapped);
   } catch (err) {
     console.error("Error fetching purchase history:", err);
     res.status(500).json({ error: "Failed to fetch purchase history" });
@@ -1033,8 +1058,9 @@ app.get("/api/purchase-history", requireAdmin, async (req: Request, res: Respons
       // Using regex enables admin to type partial email and see matches
       filter.email = { $regex: email.trim(), $options: "i" };
     }
-    const items = await PurchaseHistory.find(filter).sort({ purchaseDate: -1 }).allowDiskUse(true).lean();
-    res.json(items);
+    const items = await PurchaseHistory.find(filter, "-image").sort({ purchaseDate: -1 }).allowDiskUse(true).lean();
+    const mapped = items.map(h => ({ ...h, image: `/api/catalog/${h.productId}/image` }));
+    res.json(mapped);
   } catch (err) {
     console.error("Error fetching all purchase history:", err);
     res.status(500).json({ error: "Failed to fetch purchase history" });

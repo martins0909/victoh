@@ -80,12 +80,16 @@ export const catalogAPI = {
   // Get all catalog products
   async getAll(opts: { admin?: boolean; signal?: AbortSignal } = {}): Promise<CatalogProduct[]> {
     const token = opts.admin ? getAdminToken() : null;
-    return apiFetch('/api/catalog', {
+    const res = await apiFetch('/api/catalog', {
       headers: {
         ...(token && { 'Authorization': `Bearer ${token}` }),
       },
       signal: opts.signal,
     });
+    return (res as any[]).map(p => ({
+      ...p,
+      image: p.image && p.image.startsWith("/api/") ? `${API_BASE}${p.image}` : p.image
+    }));
   },
 
   // Create a catalog product (admin only)
@@ -131,7 +135,11 @@ export const catalogAPI = {
 export const purchaseHistoryAPI = {
   // Get purchase history for a user
   async getByUserId(userId: string): Promise<PurchaseHistory[]> {
-    return apiFetch(`/api/purchase-history/${userId}`);
+    const res = await apiFetch(`/api/purchase-history/${userId}`);
+    return (res as any[]).map(h => ({
+      ...h,
+      image: h.image && h.image.startsWith("/api/") ? `${API_BASE}${h.image}` : h.image
+    }));
   },
 
   // Create a purchase history entry
@@ -149,11 +157,15 @@ export const purchaseHistoryAPI = {
   async getAll(email?: string): Promise<PurchaseHistory[]> {
     const token = getAdminToken();
     const qs = email && email.trim().length > 0 ? `?email=${encodeURIComponent(email.trim())}` : "";
-    return apiFetch(`/api/purchase-history${qs}`, {
+    const res = await apiFetch(`/api/purchase-history${query}`, {
       headers: {
         ...(token && { 'Authorization': `Bearer ${token}` }),
       },
     });
+    return (res as any[]).map(h => ({
+      ...h,
+      image: h.image && h.image.startsWith("/api/") ? `${API_BASE}${h.image}` : h.image
+    }));
   },
 
   // Complete purchase (deduct balance, update product, create history)
