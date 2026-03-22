@@ -816,9 +816,14 @@ const Shop = () => {
           </div>
 
           <div className="md:hidden flex justify-center mt-2">
-            <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+            <a
+              href="https://viktohs-sms.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-semibold text-purple-600 dark:text-purple-400 underline"
+            >
               Click here to Buy SMS
-            </p>
+            </a>
           </div>
         </div>
 
