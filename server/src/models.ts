@@ -203,6 +203,10 @@ const CatalogProductSchema = new Schema<ICatalogProduct>({
   createdAt: { type: Date, default: Date.now },
 });
 
+// Prevent silent double-spends in concurrent purchases.
+// If two requests try to update the same product at once, one will fail with a version error.
+CatalogProductSchema.set("optimisticConcurrency", true);
+
 // Purchase History Schema
 const PurchaseHistorySchema = new Schema<IPurchaseHistory>({
   userId: { type: String, required: true },

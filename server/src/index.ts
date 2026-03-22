@@ -358,9 +358,7 @@ app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
 // Users
 app.get("/api/users", requireAdmin, async (req: Request, res: Response) => {
   try {
-    console.log("Fetching users...");
     const users = await User.find().lean();
-    console.log(`Found ${users.length} users`);
     res.json(users);
   } catch (err) {
     console.error("Error fetching users:", err);
@@ -372,6 +370,9 @@ app.get("/api/users", requireAdmin, async (req: Request, res: Response) => {
 app.get("/api/users/current/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ error: "User not found" });
+    }
     const user = await User.findById(id).lean();
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json({
@@ -466,6 +467,9 @@ app.get("/api/payments", requireAdmin, async (req: Request, res: Response) => {
 app.get("/api/payments/user/:userId", async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.json([]);
+    }
     const payments = await Payment.find({ user: userId }).sort({ createdAt: -1 }).lean();
     res.json(payments);
   } catch (err) {
@@ -629,7 +633,6 @@ app.patch("/api/products/:productId/items/:itemId/sold", requireAdmin, async (re
 
 // Health check
 app.get("/api/health", (req: Request, res: Response) => {
-  console.log("Health check endpoint hit");
   const state = mongoose.connection.readyState; // 0 disconnected, 1 connected
   const states = ["disconnected", "connected", "connecting", "disconnecting"];
   res.json({ status: states[state] || "unknown", uptime: process.uptime() });
