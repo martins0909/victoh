@@ -119,7 +119,9 @@ export default function CategoryBanners() {
 
                   <div className="flex flex-col">
                     {visibleProducts.map((product, index) => {
-                      const availableStock = (product.serialNumbers || []).filter((s: any) => !s.isUsed).length;
+                      const availableStock = typeof product.availableStock === "number"
+                        ? product.availableStock
+                        : (product.serialNumbers || []).filter((s: any) => !s.isUsed).length;
                       
                       return (
                         <div

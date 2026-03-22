@@ -57,7 +57,9 @@ const Auth = () => {
             catalogCategoriesAPI.getAll(),
           ]);
           sessionStorage.setItem("prefetch_products", JSON.stringify(prods));
+          sessionStorage.setItem("prefetch_products_at", String(Date.now()));
           sessionStorage.setItem("prefetch_categories", JSON.stringify(cats));
+          sessionStorage.setItem("prefetch_categories_at", String(Date.now()));
         } catch { /* ignore */ }
       })();
       navigate("/shop");
@@ -85,7 +87,9 @@ const Auth = () => {
         ]);
         if (!mounted) return;
         sessionStorage.setItem("prefetch_products", JSON.stringify(prods));
+        sessionStorage.setItem("prefetch_products_at", String(Date.now()));
         sessionStorage.setItem("prefetch_categories", JSON.stringify(cats));
+        sessionStorage.setItem("prefetch_categories_at", String(Date.now()));
       } catch {
         // ignore prefetch errors
       }

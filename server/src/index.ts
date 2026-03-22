@@ -124,6 +124,40 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+function tryGetAdmin(req: Request): JwtAdminPayload | null {
+  const auth = req.headers.authorization;
+  if (!auth) return null;
+  const parts = auth.split(" ");
+  const token = parts.length === 2 ? parts[1] : parts[0];
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as JwtAdminPayload;
+    return payload && payload.adminId ? payload : null;
+  } catch {
+    return null;
+  }
+}
+
+type CacheEntry<T> = { value: T; expiresAt: number };
+const memoryCache = new Map<string, CacheEntry<unknown>>();
+
+function cacheGet<T>(key: string): T | null {
+  const entry = memoryCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    memoryCache.delete(key);
+    return null;
+  }
+  return entry.value as T;
+}
+
+function cacheSet<T>(key: string, value: T, ttlMs: number) {
+  memoryCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+
+function cacheDel(key: string) {
+  memoryCache.delete(key);
+}
+
 async function start() {
   try {
     console.log("Connecting to MongoDB...");
@@ -606,7 +640,46 @@ app.get("/api/health", (req: Request, res: Response) => {
 // Get all catalog products
 app.get("/api/catalog", async (req: Request, res: Response) => {
   try {
-    const products = await CatalogProduct.find().lean();
+    const isAdmin = !!tryGetAdmin(req);
+
+    // Admins can see serialNumbers (needed for inventory management)
+    if (isAdmin) {
+      const products = await CatalogProduct.find().sort({ createdAt: -1 }).lean();
+      return res.json(products);
+    }
+
+    // Public response: no serialNumbers (security + performance). Provide availableStock only.
+    res.setHeader("Cache-Control", "public, max-age=30");
+    const cacheKey = "catalog:public:v1";
+    const cached = cacheGet<any[]>(cacheKey);
+    if (cached) return res.json(cached);
+
+    const products = await CatalogProduct.aggregate([
+      {
+        $project: {
+          _id: 0,
+          id: 1,
+          name: 1,
+          description: 1,
+          price: 1,
+          image: 1,
+          category: 1,
+          createdAt: 1,
+          availableStock: {
+            $size: {
+              $filter: {
+                input: "$serialNumbers",
+                as: "s",
+                cond: { $eq: ["$$s.isUsed", false] },
+              },
+            },
+          },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+    ]);
+
+    cacheSet(cacheKey, products, 30_000);
     res.json(products);
   } catch (err) {
     console.error("Error fetching catalog products:", err);
@@ -631,6 +704,7 @@ app.post("/api/catalog", requireAdmin, async (req: Request, res: Response) => {
       serialNumbers: [],
     });
     await product.save();
+    cacheDel("catalog:public:v1");
     res.json(product);
   } catch (err) {
     console.error("Error creating catalog product:", err);
@@ -651,6 +725,7 @@ app.put("/api/catalog/:id", requireAdmin, async (req: Request, res: Response) =>
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
+    cacheDel("catalog:public:v1");
     res.json(product);
   } catch (err) {
     console.error("Error updating catalog product:", err);
@@ -666,6 +741,7 @@ app.delete("/api/catalog/:id", requireAdmin, async (req: Request, res: Response)
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
+    cacheDel("catalog:public:v1");
     res.json({ message: "Product deleted successfully" });
   } catch (err) {
     console.error("Error deleting catalog product:", err);
@@ -678,7 +754,13 @@ app.delete("/api/catalog/:id", requireAdmin, async (req: Request, res: Response)
 // Get all categories
 app.get("/api/catalog-categories", async (req: Request, res: Response) => {
   try {
+    res.setHeader("Cache-Control", "public, max-age=120");
+    const cacheKey = "catalogCategories:public:v1";
+    const cached = cacheGet<any[]>(cacheKey);
+    if (cached) return res.json(cached);
+
     const cats = await CatalogCategory.find().sort({ name: 1 }).lean();
+    cacheSet(cacheKey, cats, 120_000);
     res.json(cats);
   } catch (err) {
     console.error("Error fetching categories:", err);
@@ -693,6 +775,7 @@ app.post("/api/catalog-categories", requireAdmin, async (req: Request, res: Resp
     if (!name) return res.status(400).json({ error: "Name is required" });
     const cat = new CatalogCategory({ id: id || crypto.randomUUID(), name, icon });
     await cat.save();
+    cacheDel("catalogCategories:public:v1");
     res.json(cat);
   } catch (err) {
     console.error("Error creating category:", err);
@@ -712,6 +795,7 @@ app.put("/api/catalog-categories/:id", requireAdmin, async (req: Request, res: R
 
     const updated = await CatalogCategory.findOneAndUpdate({ id }, updateData, { new: true });
     if (!updated) return res.status(404).json({ error: "Category not found" });
+    cacheDel("catalogCategories:public:v1");
     res.json(updated);
   } catch (err) {
     console.error("Error updating category:", err);
@@ -725,6 +809,7 @@ app.delete("/api/catalog-categories/:id", requireAdmin, async (req: Request, res
     const { id } = req.params;
     const deleted = await CatalogCategory.findOneAndDelete({ id });
     if (!deleted) return res.status(404).json({ error: "Category not found" });
+    cacheDel("catalogCategories:public:v1");
     res.json({ message: "Category deleted" });
   } catch (err) {
     console.error("Error deleting category:", err);
@@ -777,98 +862,141 @@ app.post("/api/purchase-history", async (req: Request, res: Response) => {
 // Complete purchase (deduct balance, update product, create history)
 app.post("/api/purchase/complete", async (req: Request, res: Response) => {
   try {
-    const { userId, productId, quantity, serialUpdates, purchaseData } = req.body;
+    const { userId, productId, quantity } = req.body as {
+      userId?: string;
+      productId?: string;
+      quantity?: number;
+    };
     
     console.log("Purchase request received:", { userId, productId, quantity });
     
-    if (!userId || !productId || !quantity || !purchaseData) {
-      console.error("Missing required fields:", { userId, productId, quantity, purchaseData });
+    if (!userId || !productId || !quantity) {
+      console.error("Missing required fields:", { userId, productId, quantity });
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Get user and check balance
-    const user = await User.findById(userId).exec();
-    if (!user) {
-      console.error("User not found:", userId);
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const totalPrice = purchaseData.price * quantity;
-    if ((user.balance || 0) < totalPrice) {
-      console.error("Insufficient balance:", { balance: user.balance, required: totalPrice });
-      return res.status(400).json({ error: "Insufficient balance" });
-    }
-
-    console.log("Creating purchase history...");
-    // Create purchase history first
-    const purchase = new PurchaseHistory({
-      userId: purchaseData.userId,
-      email: purchaseData.email,
-      productId: purchaseData.productId,
-      name: purchaseData.name,
-      description: purchaseData.description,
-      price: purchaseData.price,
-      image: purchaseData.image,
-      category: purchaseData.category,
-      quantity: purchaseData.quantity,
-      assignedSerials: purchaseData.assignedSerials || [],
-    });
-    await purchase.save();
-    console.log("Purchase history created successfully");
-
-    // Update product serial numbers if provided (support both _id and custom id field)
-    let updatedCatalogProduct: any = null;
-    if (serialUpdates && serialUpdates.length > 0) {
-      console.log("Updating product serial numbers...");
-      const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(productId);
-      try {
-        if (isValidObjectId) {
-          // Try _id first
-          updatedCatalogProduct = await CatalogProduct.findByIdAndUpdate(
-            productId,
-            { serialNumbers: serialUpdates },
-            { new: true }
-          ).exec();
-        }
-        // If not valid ObjectId or not found via _id, fall back to custom id field
-        if (!updatedCatalogProduct) {
-          updatedCatalogProduct = await CatalogProduct.findOneAndUpdate(
-            { id: productId },
-            { serialNumbers: serialUpdates },
-            { new: true }
-          ).exec();
-        }
-        if (updatedCatalogProduct) {
-          console.log("Serial numbers updated successfully for catalog product", updatedCatalogProduct.id || updatedCatalogProduct._id);
-        } else {
-          console.log("Catalog product not found for serial update", productId);
-        }
-      } catch (e) {
-        console.error("Error updating serial numbers", e);
+    // Helper to resolve catalog product by Mongo _id or custom id
+    const findCatalogProduct = async (id: string, session?: mongoose.ClientSession) => {
+      const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+      if (isValidObjectId) {
+        const byMongoIdQuery = CatalogProduct.findById(id);
+        if (session) byMongoIdQuery.session(session);
+        const byMongoId = await byMongoIdQuery.exec();
+        if (byMongoId) return byMongoId;
       }
+      const byCustomIdQuery = CatalogProduct.findOne({ id });
+      if (session) byCustomIdQuery.session(session);
+      return byCustomIdQuery.exec();
+    };
+
+    const session = await mongoose.startSession();
+
+    let responsePayload: {
+      success: true;
+      newBalance: number;
+      purchase: any;
+      assignedSerials: string[];
+      updatedProduct: { id: string; availableStock: number };
+    } | null = null;
+
+    try {
+      await session.withTransaction(async () => {
+        // Load user + product within transaction
+        const user = await User.findById(userId).session(session).exec();
+        if (!user) {
+          console.error("User not found:", userId);
+          throw Object.assign(new Error("User not found"), { statusCode: 404 });
+        }
+
+        const catalogProduct = await findCatalogProduct(productId, session);
+        if (!catalogProduct) {
+          console.error("Catalog product not found:", productId);
+          throw Object.assign(new Error("Product not found"), { statusCode: 404 });
+        }
+
+        const qty = Number(quantity);
+        if (!Number.isFinite(qty) || qty <= 0) {
+          throw Object.assign(new Error("Invalid quantity"), { statusCode: 400 });
+        }
+
+        const totalPrice = (catalogProduct.price || 0) * qty;
+        if ((user.balance || 0) < totalPrice) {
+          console.error("Insufficient balance:", { balance: user.balance, required: totalPrice });
+          throw Object.assign(new Error("Insufficient balance"), { statusCode: 400 });
+        }
+
+        const serials = Array.isArray(catalogProduct.serialNumbers) ? catalogProduct.serialNumbers : [];
+        const available = serials.filter((s: any) => !s.isUsed);
+        if (available.length < qty) {
+          throw Object.assign(new Error(`Only ${available.length} units available in stock.`), { statusCode: 400 });
+        }
+
+        // Assign serials server-side (never expose whole pool to the client)
+        const chosen = available.slice(0, qty);
+        const assignedSerials = chosen.map((s: any) => s.serial);
+        const now = new Date();
+        for (const s of serials as any[]) {
+          if (chosen.some((c: any) => c.id === s.id)) {
+            s.isUsed = true;
+            s.usedBy = user.email;
+            s.usedAt = now;
+          }
+        }
+
+        await (catalogProduct as any).save({ session });
+
+        const purchase = new PurchaseHistory({
+          userId,
+          email: user.email,
+          productId: catalogProduct.id,
+          name: catalogProduct.name,
+          description: catalogProduct.description,
+          price: catalogProduct.price,
+          image: catalogProduct.image,
+          category: catalogProduct.category,
+          quantity: qty,
+          assignedSerials,
+        });
+        await purchase.save({ session } as any);
+
+        const updatedUser = await User.findByIdAndUpdate(
+          userId,
+          { $inc: { balance: -totalPrice } },
+          { new: true, session }
+        ).exec();
+
+        const remainingAvailable = (Array.isArray((catalogProduct as any).serialNumbers)
+          ? (catalogProduct as any).serialNumbers.filter((s: any) => !s.isUsed).length
+          : 0);
+
+        responsePayload = {
+          success: true,
+          newBalance: updatedUser?.balance || 0,
+          purchase,
+          assignedSerials,
+          updatedProduct: {
+            id: catalogProduct.id,
+            availableStock: remainingAvailable,
+          },
+        };
+      });
+    } finally {
+      session.endSession();
     }
 
-    // Deduct balance from user last (after everything else succeeds)
-    console.log("Deducting balance...");
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { $inc: { balance: -totalPrice } },
-      { new: true }
-    ).exec();
-    console.log("Balance deducted successfully. New balance:", updatedUser?.balance);
+    // Invalidate public cache so stock updates reflect quickly
+    cacheDel("catalog:public:v1");
 
-    res.json({
-      success: true,
-      newBalance: updatedUser?.balance || 0,
-      purchase,
-      updatedProduct: updatedCatalogProduct ? {
-        id: updatedCatalogProduct.id || updatedCatalogProduct._id?.toString(),
-        serialNumbers: updatedCatalogProduct.serialNumbers || []
-      } : null
-    });
+    if (!responsePayload) {
+      return res.status(500).json({ error: "Failed to complete purchase" });
+    }
+
+    return res.json(responsePayload);
   } catch (err) {
     console.error("Error completing purchase:", err);
-    res.status(500).json({ error: "Failed to complete purchase", details: err instanceof Error ? err.message : String(err) });
+    const anyErr = err as any;
+    const statusCode = typeof anyErr?.statusCode === "number" ? anyErr.statusCode : 500;
+    res.status(statusCode).json({ error: anyErr?.message || "Failed to complete purchase" });
   }
 });
 
@@ -892,14 +1020,7 @@ app.get("/api/purchase-history", requireAdmin, async (req: Request, res: Respons
 
 // Note: Deletion endpoints removed to simplify UX; users can no longer delete purchase history entries
 
-// Health check
-app.get("/api/health", (req: Request, res: Response) => {
-  console.log("Health check endpoint hit");
-  const state = mongoose.connection.readyState; // 0 disconnected, 1 connected
-  const states = ["disconnected", "connected", "connecting", "disconnecting"];
-  res.json({ ok: state === 1, mongoState: states[state] ?? state, uptime: process.uptime() });
-  console.log("Health check response sent");
-});
+// (duplicate /api/health removed)
 
 
 // Initialize Paystack transaction

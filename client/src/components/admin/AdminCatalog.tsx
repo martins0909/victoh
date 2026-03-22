@@ -135,7 +135,7 @@ export default function AdminCatalog() {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const data = await catalogAPI.getAll();
+      const data = await catalogAPI.getAll({ admin: true });
       setProducts(data);
       
       // If DB is empty but there are local products, offer import

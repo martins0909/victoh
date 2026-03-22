@@ -48,6 +48,7 @@ interface CatalogProduct {
   image: string;
   category: string;
   serialNumbers?: SerialNumber[];
+  availableStock?: number;
   createdAt?: string; // Changed from Date to string
 }
 
@@ -77,8 +78,14 @@ const getAdminToken = () => {
 
 export const catalogAPI = {
   // Get all catalog products
-  async getAll(): Promise<CatalogProduct[]> {
-    return apiFetch('/api/catalog');
+  async getAll(opts: { admin?: boolean; signal?: AbortSignal } = {}): Promise<CatalogProduct[]> {
+    const token = opts.admin ? getAdminToken() : null;
+    return apiFetch('/api/catalog', {
+      headers: {
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
+      signal: opts.signal,
+    });
   },
 
   // Create a catalog product (admin only)
@@ -154,9 +161,7 @@ export const purchaseHistoryAPI = {
     userId: string;
     productId: string;
     quantity: number;
-    serialUpdates?: SerialNumber[];
-    purchaseData: Omit<PurchaseHistory, '_id' | 'purchaseDate'>;
-  }): Promise<{ success: boolean; newBalance: number; purchase: PurchaseHistory; updatedProduct?: { id: string; serialNumbers?: SerialNumber[] } | null }> {
+  }): Promise<{ success: boolean; newBalance: number; purchase: PurchaseHistory; assignedSerials: string[]; updatedProduct?: { id: string; availableStock: number } } > {
     return apiFetch('/api/purchase/complete', {
       method: 'POST',
       headers: {
@@ -180,8 +185,8 @@ export interface CatalogCategoryDTO {
 }
 
 export const catalogCategoriesAPI = {
-  async getAll(): Promise<CatalogCategoryDTO[]> {
-    return apiFetch('/api/catalog-categories');
+  async getAll(opts: { signal?: AbortSignal } = {}): Promise<CatalogCategoryDTO[]> {
+    return apiFetch('/api/catalog-categories', { signal: opts.signal });
   },
   async create(name: string, icon?: string): Promise<CatalogCategoryDTO> {
     const token = localStorage.getItem('admin_token');

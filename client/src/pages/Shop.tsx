@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { apiFetch, catalogAPI, purchaseHistoryAPI, catalogCategoriesAPI } from "@/lib/api";
+import { apiFetch, catalogAPI, purchaseHistoryAPI, catalogCategoriesAPI, warmBackend } from "@/lib/api";
 import { Banknote, ChevronDown, History, Copy, Home, Menu, LogIn, FileText, Headphones, MessageCircle, Wallet, Eye, EyeOff, CreditCard, Zap } from "lucide-react";
 import bannerImg from "@/assets/ban.jpg";
 import bannerLog1 from "@/assets/bannerlog1.jpg";
@@ -33,6 +33,7 @@ interface Product {
   description: string;
   category: string;
   serialNumbers?: SerialNumber[];
+  availableStock?: number;
 }
 
 interface PurchaseHistoryItem extends Product {
@@ -51,6 +52,8 @@ interface User {
 }
 
 const initialProducts: Product[] = [];
+
+const PREFETCH_TTL_MS = 5 * 60 * 1000;
 
 const Shop = () => {
   const navigate = useNavigate();
@@ -150,25 +153,40 @@ const Shop = () => {
     setUser(parsedUser);
 
     // Hydrate from prefetch cache immediately if available, for snappy UI
+    let hydratedFromCache = false;
     try {
+      const now = Date.now();
       const cachedProds = sessionStorage.getItem("prefetch_products");
+      const cachedProdsAt = Number(sessionStorage.getItem("prefetch_products_at") || "0");
       const cachedCats = sessionStorage.getItem("prefetch_categories");
-      if (cachedProds) {
+      const cachedCatsAt = Number(sessionStorage.getItem("prefetch_categories_at") || "0");
+
+      if (cachedProds && cachedProdsAt > 0 && (now - cachedProdsAt) < PREFETCH_TTL_MS) {
         const prods = JSON.parse(cachedProds) as Product[];
         setProducts(prods);
         setLoadingProducts(false);
+        hydratedFromCache = true;
+      } else {
+        sessionStorage.removeItem("prefetch_products");
+        sessionStorage.removeItem("prefetch_products_at");
       }
-      if (cachedCats) {
+
+      if (cachedCats && cachedCatsAt > 0 && (now - cachedCatsAt) < PREFETCH_TTL_MS) {
         const cats = JSON.parse(cachedCats) as Array<{ name: string }>;
         setCategories(["All", ...cats.map(c => c.name)]);
+      } else {
+        sessionStorage.removeItem("prefetch_categories");
+        sessionStorage.removeItem("prefetch_categories_at");
       }
-      // Clear caches after hydration to avoid stale data next session
-      sessionStorage.removeItem("prefetch_products");
-      sessionStorage.removeItem("prefetch_categories");
-    } catch { /* ignore cache errors */ }
+    } catch {
+      // ignore cache errors
+    }
+
+    // Warm backend in the background to reduce cold-start delays
+    warmBackend().catch(() => {});
 
     // Load products/categories (parallel) and then purchase history (deferred)
-    loadProductsAndHistory(parsedUser.id);
+    loadProductsAndHistory(parsedUser.id, { silent: hydratedFromCache });
     loadDepositHistory(parsedUser.id);
   }, [navigate]);
 
@@ -203,22 +221,32 @@ const Shop = () => {
     return () => clearInterval(interval);
   }, [user, ercasRedirectProcessed, processedTransactions]);
 
-  const loadProductsAndHistory = async (userId: string) => {
+  const loadProductsAndHistory = async (userId: string, opts: { silent?: boolean } = {}) => {
     try {
-      setLoadingProducts(true);
+      if (!opts.silent) setLoadingProducts(true);
 
       // Fetch products and categories in parallel with a soft timeout
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10000);
       const [catalogProducts, cats] = await Promise.all([
-        catalogAPI.getAll(),
-        catalogCategoriesAPI.getAll(),
+        catalogAPI.getAll({ signal: controller.signal }),
+        catalogCategoriesAPI.getAll({ signal: controller.signal }),
       ]);
       clearTimeout(timer);
 
-  setProducts(catalogProducts);
+      setProducts(catalogProducts);
       setCategories(["All", ...cats.map(c => c.name)]);
       setCategoryIcons(Object.fromEntries(cats.map(c => [c.name, c.icon || ""])));
+
+      // Refresh prefetch cache for faster future navigations
+      try {
+        sessionStorage.setItem("prefetch_products", JSON.stringify(catalogProducts));
+        sessionStorage.setItem("prefetch_products_at", String(Date.now()));
+        sessionStorage.setItem("prefetch_categories", JSON.stringify(cats));
+        sessionStorage.setItem("prefetch_categories_at", String(Date.now()));
+      } catch {
+        // ignore cache write failures
+      }
       
       // Defer purchase history so UI renders fast
       (async () => {
@@ -241,7 +269,7 @@ const Shop = () => {
       })();
     } catch (error) {
       console.error("Error loading data:", error);
-      toast.error("Failed to load products");
+      if (!opts.silent) toast.error("Failed to load products");
     } finally {
       setLoadingProducts(false);
     }
@@ -276,50 +304,20 @@ const Shop = () => {
     // Set loading state to prevent duplicate purchases
     setIsPurchasing(true);
 
-    // Check if enough serial numbers are available
-    const availableSerials = (selectedProduct.serialNumbers || []).filter(s => !s.isUsed);
-    if (availableSerials.length < purchaseQuantity) {
-      toast.error(`Only ${availableSerials.length} units available in stock.`);
-      return;
-    }
-
     try {
-      // Assign serial numbers to this purchase
-      const serialsToAssign = availableSerials.slice(0, purchaseQuantity);
-      const assignedSerialNumbers = serialsToAssign.map(s => s.serial);
+      const availableStock = typeof selectedProduct.availableStock === "number"
+        ? selectedProduct.availableStock
+        : (selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length;
+      if (availableStock < purchaseQuantity) {
+        toast.error(`Only ${availableStock} units available in stock.`);
+        return;
+      }
 
-      // Update product serials to mark as used
-      const updatedSerials = (selectedProduct.serialNumbers || []).map(s => {
-        if (serialsToAssign.some(assigned => assigned.id === s.id)) {
-          return {
-            ...s,
-            isUsed: true,
-            usedBy: user.email,
-            usedAt: new Date().toISOString()
-          };
-        }
-        return s;
-      });
-
-      // Complete purchase via backend (deducts balance, updates product, creates history)
-      // Backend handles both MongoDB _id and custom UUID id fields, so always send serialUpdates
+      // Complete purchase via backend (deducts balance, assigns serials, creates history)
       const result = await purchaseHistoryAPI.completePurchase({
         userId: user.id,
         productId: selectedProduct.id,
         quantity: purchaseQuantity,
-        serialUpdates: updatedSerials,
-        purchaseData: {
-          userId: user.id,
-          email: user.email,
-          productId: selectedProduct.id,
-          name: selectedProduct.name,
-          description: selectedProduct.description,
-          price: selectedProduct.price,
-          image: selectedProduct.image,
-          category: selectedProduct.category,
-          quantity: purchaseQuantity,
-          assignedSerials: assignedSerialNumbers
-        }
       });
 
       // Update local state with new balance from backend
@@ -331,13 +329,13 @@ const Shop = () => {
       const updatedUsers = usersRaw.map(u => u.id === user.id ? updatedUser : u);
       localStorage.setItem("users", JSON.stringify(updatedUsers));
 
-      // Update local products state using backend authoritative serialNumbers if provided
-      const backendSerials = result.updatedProduct?.serialNumbers;
       const updatedProducts = products.map(p => {
         if (p.id === selectedProduct.id) {
           return {
             ...p,
-            serialNumbers: backendSerials && backendSerials.length > 0 ? backendSerials : updatedSerials
+            availableStock: typeof result.updatedProduct?.availableStock === "number"
+              ? result.updatedProduct.availableStock
+              : (typeof p.availableStock === "number" ? Math.max(0, p.availableStock - purchaseQuantity) : p.availableStock)
           };
         }
         return p;
@@ -362,7 +360,7 @@ const Shop = () => {
       setPurchaseSummaryData({
         product: selectedProduct,
         quantity: purchaseQuantity,
-        serials: assignedSerialNumbers,
+        serials: result.assignedSerials || [],
         balanceBefore,
         balanceAfter: result.newBalance
       });
@@ -970,7 +968,9 @@ const Shop = () => {
                         </div>
                         <div className="space-y-3 md:space-y-4">
                           {displayedProducts.map((product, index) => {
-                            const availableStock = (product.serialNumbers || []).filter(s => !s.isUsed).length;
+                            const availableStock = typeof product.availableStock === "number"
+                              ? product.availableStock
+                              : (product.serialNumbers || []).filter(s => !s.isUsed).length;
                             
                             return (
                             <Card 
@@ -1104,7 +1104,9 @@ const Shop = () => {
                           </div>
                           <div className="space-y-3 md:space-y-4">
                             {displayedProducts.map((product, index) => {
-                        const availableStock = (product.serialNumbers || []).filter(s => !s.isUsed).length;
+                        const availableStock = typeof product.availableStock === "number"
+                          ? product.availableStock
+                          : (product.serialNumbers || []).filter(s => !s.isUsed).length;
                         
                         return (
                         <Card 
@@ -1401,17 +1403,23 @@ const Shop = () => {
                       size="sm"
                       className="h-8 w-8 p-0"
                       onClick={() => {
-                        const maxStock = (selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length;
+                        const maxStock = typeof selectedProduct.availableStock === "number"
+                          ? selectedProduct.availableStock
+                          : (selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length;
                         setPurchaseQuantity(Math.min(maxStock, purchaseQuantity + 1));
                       }}
-                      disabled={purchaseQuantity >= ((selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length)}
+                      disabled={purchaseQuantity >= (typeof selectedProduct.availableStock === "number"
+                        ? selectedProduct.availableStock
+                        : (selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length)}
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">
-                  {((selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length)} units available
+                  {(typeof selectedProduct.availableStock === "number"
+                    ? selectedProduct.availableStock
+                    : (selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length)} units available
                 </div>
 
                 <div className="flex items-center justify-between pt-1 border-t border-gray-200 dark:border-gray-800">
