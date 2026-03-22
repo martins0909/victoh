@@ -225,9 +225,9 @@ const Shop = () => {
     try {
       if (!opts.silent) setLoadingProducts(true);
 
-      // Fetch products and categories in parallel with a soft timeout
+      // Fetch products and categories in parallel with a softer timeout
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 10000);
+      const timer = setTimeout(() => controller.abort(), 30000); // Increased to 30 seconds
       const [catalogProducts, cats] = await Promise.all([
         catalogAPI.getAll({ signal: controller.signal }),
         catalogCategoriesAPI.getAll({ signal: controller.signal }),
