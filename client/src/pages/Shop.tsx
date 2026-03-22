@@ -814,6 +814,12 @@ const Shop = () => {
               <BadgeCheck className="h-3 w-3 md:h-5 md:w-5 text-purple-600" />
             </div>
           </div>
+
+          <div className="md:hidden flex justify-center mt-2">
+            <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+              Click here to Buy SMS
+            </p>
+          </div>
         </div>
 
         <div className="px-0 md:px-6">
