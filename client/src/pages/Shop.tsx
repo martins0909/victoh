@@ -2030,7 +2030,7 @@ const Shop = () => {
             <div className="p-4 bg-gray-50 dark:bg-[#09090b]/50 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
               <div className="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-700 pb-2">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Bank Name</span>
-                <span className="font-bold text-gray-900 dark:text-gray-100">Palmpay</span>
+                <span className="font-bold text-gray-900 dark:text-gray-100">Opay</span>
               </div>
               <div className="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-700 pb-2">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Account Number</span>
@@ -2073,7 +2073,7 @@ const Shop = () => {
             <Button
               variant="outline"
               onClick={() => {
-                const details = `Bank: Palmpay\nAccount: 8168447958\nName: Okeke Victor Udochukwu\nDescription: Bills`;
+                const details = `Bank: Opay\nAccount: 8168447958\nName: Okeke Victor Udochukwu\nDescription: Bills`;
                 navigator.clipboard.writeText(details);
                 toast.success("Bank details copied to clipboard!");
               }}
