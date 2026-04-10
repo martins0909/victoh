@@ -156,7 +156,7 @@ export const purchaseHistoryAPI = {
   // Get all purchase history (admin only) with optional email search
   async getAll(email?: string): Promise<PurchaseHistory[]> {
     const token = getAdminToken();
-    const qs = email && email.trim().length > 0 ? `?email=${encodeURIComponent(email.trim())}` : "";
+    const query = email && email.trim().length > 0 ? `?email=${encodeURIComponent(email.trim())}` : "";
     const res = await apiFetch(`/api/purchase-history${query}`, {
       headers: {
         ...(token && { 'Authorization': `Bearer ${token}` }),
