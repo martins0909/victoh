@@ -14,7 +14,7 @@ import bannerLog1 from "@/assets/bannerlog1.jpg";
 import bannerLog2 from "@/assets/bannerlog2.jpg";
 import bannerLog3 from "@/assets/bannerlogo3.png";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
-import { Plus, LogOut, BadgeCheck, X, ShoppingCart, Minus } from "lucide-react";
+import { Plus, LogOut, BadgeCheck, X, ShoppingCart, Minus, Send } from "lucide-react";
 // Removed demo product assets; shop now shows only database products
 
 interface SerialNumber {
@@ -120,6 +120,8 @@ const Shop = () => {
   // Categories from API
   const [categories, setCategories] = useState<string[]>(["All"]);
   const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>({});
+
+  const [showNotificationModal, setShowNotificationModal] = useState(true);
 
   // New: Purchase summary dialog state
   const [showPurchaseSummaryDialog, setShowPurchaseSummaryDialog] = useState(false);
@@ -701,6 +703,55 @@ const Shop = () => {
         onShopDepositHistoryClick={() => setShowDepositHistory(true)}
         onShopSignOutClick={handleSignOut}
       />
+
+      {/* Notification Modal */}
+      <Dialog open={showNotificationModal} onOpenChange={setShowNotificationModal}>
+        <DialogContent className="sm:max-w-md w-[90vw] md:w-full bg-white dark:bg-black p-4 sm:p-6 rounded-2xl border-2 border-white/60 dark:border-gray-800">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-800 dark:from-purple-400 dark:to-purple-500 text-center">
+              New Update
+            </DialogTitle>
+            <DialogDescription className="hidden">Notification about the new Telegram channel</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center text-center space-y-3 sm:space-y-4">
+            <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 leading-relaxed px-1 sm:px-2">
+              Our previous Telegram channel has been banned. kindly use the link below to join our new channel and contact the new support number for assistance
+            </p>
+            
+            <div className="w-full flex justify-center py-2">
+              <Button 
+                onClick={() => window.open("https://t.me/+0v09JFhl1sZjYTlk", "_blank")}
+                className="w-full sm:w-3/4 flex items-center justify-center gap-2 bg-[#0088cc] hover:bg-[#0077b3] text-white"
+              >
+                <Send className="w-4 h-4" />
+                Join New Channel
+              </Button>
+            </div>
+
+            <div className="w-full flex justify-center pb-2">
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard.writeText("https://t.me/+0v09JFhl1sZjYTlk");
+                  toast.success("Link copied!");
+                }}
+                className="w-full sm:w-3/4 flex items-center justify-center gap-2"
+              >
+                <Copy className="w-4 h-4" />
+                Copy Link
+              </Button>
+            </div>
+
+            <Button 
+              variant="secondary"
+              onClick={() => setShowNotificationModal(false)}
+              className="w-full sm:w-3/4 font-semibold mt-2 border border-gray-200 dark:border-gray-800"
+            >
+              Got it, thanks!
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Purchase Summary Dialog */}
       <Dialog open={showPurchaseSummaryDialog} onOpenChange={setShowPurchaseSummaryDialog}>
