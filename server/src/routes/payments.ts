@@ -524,6 +524,11 @@ router.post('/pocketfi/webhook', express.raw({ type: 'application/json' }), asyn
     }
 
     const payload = req.body.toString();
+
+    // Temporary debug logging to inspect what PocketFi is actually sending
+    console.log('PocketFi webhook debug headers:', req.headers);
+    console.log('PocketFi webhook debug payload:', payload);
+
     const signature = String(
       req.headers['x-pocketfi-signature'] ||
       req.headers['pocketfi-signature'] ||
@@ -534,6 +539,9 @@ router.post('/pocketfi/webhook', express.raw({ type: 'application/json' }), asyn
       ''
     ).trim();
     const hash = crypto.createHmac('sha512', POCKETFI_SECRET_KEY).update(payload).digest('hex');
+
+    console.log('PocketFi webhook debug signature:', signature);
+    console.log('PocketFi webhook debug computed hash:', hash);
 
     if (signature.toLowerCase() !== hash.toLowerCase()) {
       return res.status(400).json({ message: 'Invalid signature' });
