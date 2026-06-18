@@ -53,11 +53,19 @@ async function ensurePhoneNumber(userDoc: any): Promise<string> {
   return candidate;
 }
 
-function getFirstName(rawName?: string): string {
-  const trimmed = (rawName || '').trim();
-  if (!trimmed) return 'Customer';
-  const parts = trimmed.split(/\s+/);
-  return parts[0] || 'Customer';
+function getNameParts(rawName?: string): { firstName: string; lastName: string } {
+  const parts = (rawName || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) {
+    return { firstName: 'Customer', lastName: 'User' };
+  }
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: 'User' };
+  }
+
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(' '),
+  };
 }
 
 // Initialize Ercaspay client - MUST use baseURL (uppercase) not baseUrl
@@ -72,7 +80,7 @@ const ercaspay = new Ercaspay({
  */
 router.post('/pocketfi/initiate', async (req, res) => {
   try {
-    const { amount, userId, email, firstName } = req.body;
+    const { amount, userId, email, firstName, lastName } = req.body;
 
     if (!amount || !userId || !email) {
       return res.status(400).json({
@@ -95,10 +103,12 @@ router.post('/pocketfi/initiate', async (req, res) => {
 
     const phoneNumber = await ensurePhoneNumber(user);
     const paymentReference = `pocketfi_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    const providedName = `${firstName || ''} ${lastName || ''}`.trim();
+    const { firstName: resolvedFirstName, lastName: resolvedLastName } = getNameParts(providedName || user.name);
 
     const payload = {
-      first_name: getFirstName(firstName || user.name),
-      last_name: '',
+      first_name: resolvedFirstName,
+      last_name: resolvedLastName,
       phone: phoneNumber,
       email: user.email,
       businessId: POCKETFI_BUSINESS_ID,
@@ -136,7 +146,7 @@ router.post('/pocketfi/initiate', async (req, res) => {
       success: true,
       paymentReference,
       transactionReference: paymentRecord.transactionReference,
-      accountName: gatewayData.accountName || gatewayData.account_name || gatewayData.name || getFirstName(firstName || user.name),
+      accountName: gatewayData.accountName || gatewayData.account_name || gatewayData.name || resolvedFirstName,
       accountNumber: gatewayData.accountNumber || gatewayData.account_number || gatewayData.virtualAccountNumber || gatewayData.virtual_account_number,
       bankName: gatewayData.bankName || gatewayData.bank_name || gatewayData.bank || payload.bank,
       message: gatewayData.message || 'Use the details below to complete your payment.',

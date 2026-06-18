@@ -442,10 +442,18 @@ const Shop = () => {
      setShowPaymentMethodDialog(true);
   };
 
-  const getFirstNameFromUser = (name?: string) => {
-    const trimmed = (name || "").trim();
-    if (!trimmed) return "";
-    return trimmed.split(/\s+/)[0] || "";
+  const getNamePartsFromUser = (name?: string) => {
+    const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) {
+      return { firstName: "Customer", lastName: "User" };
+    }
+    if (parts.length === 1) {
+      return { firstName: parts[0], lastName: "User" };
+    }
+    return {
+      firstName: parts[0],
+      lastName: parts.slice(1).join(" "),
+    };
   };
 
   const handleQuickPay = async () => {
@@ -461,6 +469,7 @@ const Shop = () => {
     setIsCreatingQuickPay(true);
 
     try {
+      const { firstName, lastName } = getNamePartsFromUser(user.name as string | undefined);
       const res = await apiFetch("/api/payments/pocketfi/initiate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -468,7 +477,8 @@ const Shop = () => {
           amount,
           userId: user.id,
           email: user.email,
-          firstName: getFirstNameFromUser(user.name as string | undefined),
+          firstName,
+          lastName,
         }),
       });
 
