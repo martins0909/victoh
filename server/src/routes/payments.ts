@@ -130,6 +130,39 @@ router.post('/pocketfi/initiate', async (req, res) => {
     );
 
     const gatewayData = response.data || {};
+    const banks = Array.isArray(gatewayData?.banks) ? gatewayData.banks : [];
+    const firstBank = banks[0] || {};
+
+    const extractedAccountNumber =
+      firstBank.accountNumber ||
+      firstBank.account_number ||
+      firstBank.virtualAccountNumber ||
+      firstBank.virtual_account_number ||
+      gatewayData.accountNumber ||
+      gatewayData.account_number ||
+      gatewayData.virtualAccountNumber ||
+      gatewayData.virtual_account_number ||
+      '';
+
+    const extractedAccountName =
+      firstBank.accountName ||
+      firstBank.account_name ||
+      firstBank.name ||
+      gatewayData.accountName ||
+      gatewayData.account_name ||
+      gatewayData.name ||
+      `${resolvedFirstName} ${resolvedLastName}`.trim() ||
+      'Customer';
+
+    const extractedBankName =
+      firstBank.bankName ||
+      firstBank.bank_name ||
+      firstBank.bank ||
+      gatewayData.bankName ||
+      gatewayData.bank_name ||
+      gatewayData.bank ||
+      payload.bank;
+
     const paymentRecord = await Payment.create({
       user: user._id,
       userLocalId: userId,
@@ -146,9 +179,9 @@ router.post('/pocketfi/initiate', async (req, res) => {
       success: true,
       paymentReference,
       transactionReference: paymentRecord.transactionReference,
-      accountName: gatewayData.accountName || gatewayData.account_name || gatewayData.name || resolvedFirstName,
-      accountNumber: gatewayData.accountNumber || gatewayData.account_number || gatewayData.virtualAccountNumber || gatewayData.virtual_account_number,
-      bankName: gatewayData.bankName || gatewayData.bank_name || gatewayData.bank || payload.bank,
+      accountName: extractedAccountName,
+      accountNumber: extractedAccountNumber,
+      bankName: extractedBankName,
       message: gatewayData.message || 'Use the details below to complete your payment.',
       raw: gatewayData,
     });
