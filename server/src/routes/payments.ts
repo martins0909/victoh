@@ -523,11 +523,15 @@ router.post('/pocketfi/webhook', express.raw({ type: 'application/json' }), asyn
       return res.status(500).json({ message: 'PocketFi secret key is not configured' });
     }
 
-    const payload = req.body.toString();
+    const rawBody = Buffer.isBuffer(req.body)
+      ? req.body
+      : Buffer.from(typeof req.body === 'string' ? req.body : JSON.stringify(req.body || ''));
+    const payload = rawBody.toString('utf8');
 
     // Temporary debug logging to inspect what PocketFi is actually sending
     console.log('PocketFi webhook debug headers:', req.headers);
-    console.log('PocketFi webhook debug payload:', payload);
+    console.log('PocketFi webhook debug payload length:', rawBody.length);
+    console.log('PocketFi webhook debug payload text:', payload);
 
     const signature = String(
       req.headers['x-pocketfi-signature'] ||
@@ -538,7 +542,7 @@ router.post('/pocketfi/webhook', express.raw({ type: 'application/json' }), asyn
       req.headers['signature'] ||
       ''
     ).trim();
-    const hash = crypto.createHmac('sha512', POCKETFI_SECRET_KEY).update(payload).digest('hex');
+    const hash = crypto.createHmac('sha512', POCKETFI_SECRET_KEY).update(rawBody).digest('hex');
 
     console.log('PocketFi webhook debug signature:', signature);
     console.log('PocketFi webhook debug computed hash:', hash);

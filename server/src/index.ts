@@ -35,6 +35,9 @@ app.use(cors({
   credentials: true
 }));
 
+// Preserve raw webhook payloads before JSON parsing runs for other routes.
+app.use('/api/payments/pocketfi/webhook', express.raw({ type: 'application/json' }));
+
 // Increase payload limit and add error handling for malformed JSON
 app.use(express.json({ limit: '10mb' }));
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
