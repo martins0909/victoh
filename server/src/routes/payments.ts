@@ -131,9 +131,16 @@ router.post('/pocketfi/initiate', async (req, res) => {
 
     const gatewayData = response.data || {};
     const nestedData = gatewayData?.data || {};
+    const nestedTransaction = nestedData?.transaction || gatewayData?.transaction || {};
     const nestedBanks = Array.isArray(nestedData?.banks) ? nestedData.banks : [];
     const banks = Array.isArray(gatewayData?.banks) ? gatewayData.banks : nestedBanks;
     const firstBank = banks[0] || nestedData || {};
+    const extractedReference =
+      gatewayData?.reference ||
+      nestedData?.reference ||
+      nestedTransaction?.reference ||
+      gatewayData?.transaction?.reference ||
+      paymentReference;
 
     const extractedAccountNumber =
       firstBank.accountNumber ||
@@ -189,7 +196,7 @@ router.post('/pocketfi/initiate', async (req, res) => {
       method: 'pocketfi',
       status: 'pending',
       reference: paymentReference,
-      transactionReference: gatewayData.reference || gatewayData.transaction?.reference || paymentReference,
+      transactionReference: extractedReference,
       isCredited: false,
     });
 
@@ -552,22 +559,51 @@ router.post('/pocketfi/webhook', express.raw({ type: 'application/json' }), asyn
     }
 
     const data = JSON.parse(payload);
-    const reference = data?.transaction?.reference || data?.reference;
-    const amount = Number(data?.order?.amount || 0);
+    const payloadData = data?.data || data;
+    const reference =
+      payloadData?.transaction?.reference ||
+      payloadData?.reference ||
+      data?.transaction?.reference ||
+      data?.reference ||
+      '';
+    const amount = Number(
+      payloadData?.order?.amount ||
+      data?.order?.amount ||
+      0
+    );
+    const customerEmail = String(
+      payloadData?.customer?.email ||
+      data?.customer?.email ||
+      ''
+    ).trim();
 
     if (!reference) {
       return res.status(400).json({ message: 'Missing transaction reference' });
     }
 
-    const payment = await Payment.findOne({
+    let payment = await Payment.findOne({
       $or: [
         { reference: reference },
         { transactionReference: reference }
       ]
     });
 
+    if (!payment && customerEmail && amount > 0) {
+      payment = await Payment.findOne({
+        email: customerEmail,
+        amount,
+        method: 'pocketfi',
+        status: 'pending'
+      }).sort({ createdAt: -1 });
+    }
+
     if (payment && payment.isCredited) {
       return res.status(200).json({ message: 'already processed' });
+    }
+
+    if (payment) {
+      payment.transactionReference = payment.transactionReference || reference;
+      payment.reference = payment.reference || reference;
     }
 
     if (payment && payment.user && amount > 0) {
