@@ -575,7 +575,11 @@ router.post('/pocketfi/webhook', express.raw({ type: 'application/json' }), asyn
       payloadData?.customer?.email ||
       data?.customer?.email ||
       ''
-    ).trim();
+    ).trim().toLowerCase();
+
+    console.log('PocketFi webhook parsed reference:', reference);
+    console.log('PocketFi webhook parsed amount:', amount);
+    console.log('PocketFi webhook parsed email:', customerEmail);
 
     if (!reference) {
       return res.status(400).json({ message: 'Missing transaction reference' });
@@ -597,6 +601,18 @@ router.post('/pocketfi/webhook', express.raw({ type: 'application/json' }), asyn
       }).sort({ createdAt: -1 });
     }
 
+    console.log('PocketFi webhook payment match:', {
+      found: Boolean(payment),
+      paymentId: payment?._id?.toString(),
+      paymentUser: payment?.user?.toString(),
+      paymentUserLocalId: payment?.userLocalId,
+      paymentEmail: payment?.email,
+      paymentAmount: payment?.amount,
+      paymentStatus: payment?.status,
+      paymentReference: payment?.reference,
+      paymentTransactionReference: payment?.transactionReference,
+    });
+
     if (payment && payment.isCredited) {
       return res.status(200).json({ message: 'already processed' });
     }
@@ -606,15 +622,33 @@ router.post('/pocketfi/webhook', express.raw({ type: 'application/json' }), asyn
       payment.reference = payment.reference || reference;
     }
 
-    if (payment && payment.user && amount > 0) {
-      const user = await User.findById(payment.user);
+    if (payment && amount > 0) {
+      let user = null;
+      if (payment.user) {
+        user = await User.findById(payment.user);
+      }
+      if (!user && customerEmail) {
+        user = await User.findOne({ email: customerEmail });
+      }
+      if (!user && payment.userLocalId) {
+        user = await User.findById(payment.userLocalId);
+      }
+
+      console.log('PocketFi webhook user lookup:', {
+        userFound: Boolean(user),
+        userId: user?._id?.toString(),
+        userEmail: user?.email,
+        currentBalance: user?.balance,
+      });
+
       if (user) {
         const updatedUser = await User.findByIdAndUpdate(
-          payment.user,
+          user._id,
           { $inc: { balance: amount } },
           { new: true }
         );
 
+        payment.user = user._id;
         payment.status = 'completed';
         payment.isCredited = true;
         await payment.save();
