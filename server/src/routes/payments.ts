@@ -14,9 +14,9 @@ if (!ECRS_AUTH_KEY) {
 }
 
 const POCKETFI_BASE_URL = (process.env.POCKETFI_BASE_URL || process.env.POCKETFI_API_URL || '').trim();
-const POCKETFI_SECRET_KEY = (process.env.POCKETFI_SECRET_KEY || '').trim();
+const POCKETFI_SECRET_KEY = (process.env.POCKETFI_SECRET_KEY || process.env.POCKETFI_SECRET || process.env.POCKETFI_WEBHOOK_SECRET || '').trim();
 const POCKETFI_BUSINESS_ID = (process.env.POCKETFI_BUSINESS_ID || '').trim();
-const POCKETFI_CREATE_ENDPOINT = (process.env.POCKETFI_CREATE_ENDPOINT || '/virtual-account/create').trim();
+const POCKETFI_CREATE_ENDPOINT = (process.env.POCKETFI_CREATE_ENDPOINT || '/virtual-accounts/create').trim();
 const POCKETFI_API_KEY = (process.env.POCKETFI_API_KEY || '').trim();
 
 const PHONE_PREFIXES = ['070', '080', '081', '090'];
@@ -130,34 +130,52 @@ router.post('/pocketfi/initiate', async (req, res) => {
     );
 
     const gatewayData = response.data || {};
-    const banks = Array.isArray(gatewayData?.banks) ? gatewayData.banks : [];
-    const firstBank = banks[0] || {};
+    const nestedData = gatewayData?.data || {};
+    const nestedBanks = Array.isArray(nestedData?.banks) ? nestedData.banks : [];
+    const banks = Array.isArray(gatewayData?.banks) ? gatewayData.banks : nestedBanks;
+    const firstBank = banks[0] || nestedData || {};
 
     const extractedAccountNumber =
       firstBank.accountNumber ||
       firstBank.account_number ||
       firstBank.virtualAccountNumber ||
       firstBank.virtual_account_number ||
+      nestedData.accountNumber ||
+      nestedData.account_number ||
+      nestedData.virtualAccountNumber ||
+      nestedData.virtual_account_number ||
       gatewayData.accountNumber ||
       gatewayData.account_number ||
       gatewayData.virtualAccountNumber ||
       gatewayData.virtual_account_number ||
       '';
 
+    const customerPayload = gatewayData.customer || nestedData.customer || {};
+    const customerFirstName = customerPayload.first_name || customerPayload.firstName || '';
+    const customerLastName = customerPayload.last_name || customerPayload.lastName || '';
+
     const extractedAccountName =
       firstBank.accountName ||
       firstBank.account_name ||
       firstBank.name ||
+      nestedData.accountName ||
+      nestedData.account_name ||
+      nestedData.name ||
       gatewayData.accountName ||
       gatewayData.account_name ||
       gatewayData.name ||
+      `${customerFirstName} ${customerLastName}`.trim() ||
       `${resolvedFirstName} ${resolvedLastName}`.trim() ||
+      (user.name ? getNameParts(user.name).firstName : '') ||
       'Customer';
 
     const extractedBankName =
       firstBank.bankName ||
       firstBank.bank_name ||
       firstBank.bank ||
+      nestedData.bankName ||
+      nestedData.bank_name ||
+      nestedData.bank ||
       gatewayData.bankName ||
       gatewayData.bank_name ||
       gatewayData.bank ||
@@ -506,10 +524,18 @@ router.post('/pocketfi/webhook', express.raw({ type: 'application/json' }), asyn
     }
 
     const payload = req.body.toString();
-    const signature = String(req.headers['http_pocketfi_signature'] || req.headers['HTTP_POCKETFI_SIGNATURE'] || '');
+    const signature = String(
+      req.headers['x-pocketfi-signature'] ||
+      req.headers['pocketfi-signature'] ||
+      req.headers['http_pocketfi_signature'] ||
+      req.headers['HTTP_POCKETFI_SIGNATURE'] ||
+      req.headers['x-signature'] ||
+      req.headers['signature'] ||
+      ''
+    ).trim();
     const hash = crypto.createHmac('sha512', POCKETFI_SECRET_KEY).update(payload).digest('hex');
 
-    if (signature !== hash) {
+    if (signature.toLowerCase() !== hash.toLowerCase()) {
       return res.status(400).json({ message: 'Invalid signature' });
     }
 
