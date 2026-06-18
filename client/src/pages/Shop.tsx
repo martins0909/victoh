@@ -66,6 +66,7 @@ const Shop = () => {
   const [purchaseQuantity, setPurchaseQuantity] = useState(1);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isCreatingTopup, setIsCreatingTopup] = useState(false);
+  const [isCreatingQuickPay, setIsCreatingQuickPay] = useState(false);
   const [isVerifyingTopup, setIsVerifyingTopup] = useState(false);
   const [showPurchaseHistory, setShowPurchaseHistory] = useState(false);
   const [showDepositHistory, setShowDepositHistory] = useState(false);
@@ -127,6 +128,14 @@ const Shop = () => {
   const [showPurchaseSummaryDialog, setShowPurchaseSummaryDialog] = useState(false);
   const [showManualFundsDialog, setShowManualFundsDialog] = useState(false);
   const [showPaymentMethodDialog, setShowPaymentMethodDialog] = useState(false);
+  const [showQuickPayDetailsDialog, setShowQuickPayDetailsDialog] = useState(false);
+  const [quickPayDetails, setQuickPayDetails] = useState<{
+    accountName?: string;
+    accountNumber?: string;
+    bankName?: string;
+    message?: string;
+    paymentReference?: string;
+  } | null>(null);
   const [purchaseSummaryData, setPurchaseSummaryData] = useState<{
     product: Product | null;
     quantity: number;
@@ -431,6 +440,61 @@ const Shop = () => {
        return;
      }
      setShowPaymentMethodDialog(true);
+  };
+
+  const getFirstNameFromUser = (name?: string) => {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return "";
+    return trimmed.split(/\s+/)[0] || "";
+  };
+
+  const handleQuickPay = async () => {
+    const amount = parseFloat(addFundsAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    if (!user) return;
+
+    setShowPaymentMethodDialog(false);
+    setIsCreatingQuickPay(true);
+
+    try {
+      const res = await apiFetch("/api/payments/pocketfi/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount,
+          userId: user.id,
+          email: user.email,
+          firstName: getFirstNameFromUser(user.name as string | undefined),
+        }),
+      });
+
+      const data = res as {
+        success: boolean;
+        accountName?: string;
+        accountNumber?: string;
+        bankName?: string;
+        message?: string;
+        paymentReference?: string;
+      };
+
+      if (!data.success) {
+        toast.error(data.message || "Failed to initialize Quick Pay");
+        return;
+      }
+
+      setQuickPayDetails(data);
+      setShowQuickPayDetailsDialog(true);
+      toast.success("Quick Pay details ready");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to start Quick Pay";
+      toast.error(msg);
+    } finally {
+      setIsCreatingQuickPay(false);
+    }
   };
 
   const initiateErcasPayment = async () => {
@@ -2168,12 +2232,9 @@ const Shop = () => {
               <CreditCard className="mr-3 h-5 w-5" />
               Instant payment (ercas)
             </Button>
-            <Button onClick={() => {
-                setShowPaymentMethodDialog(false);
-                toast.info("Quick Pay integration coming soon!");
-            }} className="w-full h-14 justify-start px-4 text-left font-semibold text-base bg-purple-600 hover:bg-purple-700 shadow-md">
+            <Button onClick={handleQuickPay} disabled={isCreatingQuickPay} className="w-full h-14 justify-start px-4 text-left font-semibold text-base bg-purple-600 hover:bg-purple-700 shadow-md">
               <Zap className="mr-3 h-5 w-5" />
-              Quick Pay
+              {isCreatingQuickPay ? "Preparing Quick Pay..." : "Quick Pay"}
             </Button>
             <Button onClick={() => {
                 setShowPaymentMethodDialog(false);
@@ -2185,6 +2246,46 @@ const Shop = () => {
           </div>
           <DialogFooter>
              <Button variant="ghost" onClick={() => setShowPaymentMethodDialog(false)} className="w-full">Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Pay Details Dialog */}
+      <Dialog open={showQuickPayDetailsDialog} onOpenChange={setShowQuickPayDetailsDialog}>
+        <DialogContent className="sm:max-w-md w-[90%] rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Quick Pay Details</DialogTitle>
+            <DialogDescription>
+              Use the account details below to complete your wallet funding.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <p className="text-xs text-gray-500">Bank</p>
+              <p className="font-semibold">{quickPayDetails?.bankName || "PocketFi"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Account Name</p>
+              <p className="font-semibold">{quickPayDetails?.accountName || "Pending"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Account Number</p>
+              <p className="font-semibold break-all">{quickPayDetails?.accountNumber || "Pending"}</p>
+            </div>
+            {quickPayDetails?.paymentReference && (
+              <div>
+                <p className="text-xs text-gray-500">Reference</p>
+                <p className="font-mono text-sm break-all">{quickPayDetails.paymentReference}</p>
+              </div>
+            )}
+            {quickPayDetails?.message && (
+              <div className="rounded-lg bg-gray-50 dark:bg-[#111111] p-3 text-sm text-gray-700 dark:text-gray-300">
+                {quickPayDetails.message}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQuickPayDetailsDialog(false)} className="w-full">Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

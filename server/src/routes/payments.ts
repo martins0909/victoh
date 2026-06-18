@@ -1,6 +1,8 @@
 import express from 'express';
 import axios from 'axios';
+import crypto from 'crypto';
 import Ercaspay from '@capitalsage/ercaspay-nodejs';
+import { Payment, User } from '../models';
 
 const router = express.Router();
 
@@ -11,10 +13,142 @@ if (!ECRS_AUTH_KEY) {
   console.error('FATAL: Ercaspay key not set. Set ECRS_SECRET_KEY (preferred) or ECRS_API_KEY.');
 }
 
+const POCKETFI_BASE_URL = (process.env.POCKETFI_BASE_URL || process.env.POCKETFI_API_URL || '').trim();
+const POCKETFI_SECRET_KEY = (process.env.POCKETFI_SECRET_KEY || '').trim();
+const POCKETFI_BUSINESS_ID = (process.env.POCKETFI_BUSINESS_ID || '').trim();
+const POCKETFI_CREATE_ENDPOINT = (process.env.POCKETFI_CREATE_ENDPOINT || '/virtual-account/create').trim();
+const POCKETFI_API_KEY = (process.env.POCKETFI_API_KEY || '').trim();
+
+const PHONE_PREFIXES = ['070', '080', '081', '090'];
+
+function generatePhoneNumber(): string {
+  const prefix = PHONE_PREFIXES[Math.floor(Math.random() * PHONE_PREFIXES.length)];
+  const suffix = Math.floor(10000000 + Math.random() * 90000000).toString();
+  return `${prefix}${suffix}`;
+}
+
+async function ensurePhoneNumber(userDoc: any): Promise<string> {
+  if (userDoc.phoneNumber && /^0[7890]\d{8}$/.test(userDoc.phoneNumber)) {
+    return userDoc.phoneNumber;
+  }
+
+  let candidate = '';
+  let attempts = 0;
+  while (attempts < 20) {
+    candidate = generatePhoneNumber();
+    const existing = await User.findOne({ phoneNumber: candidate }).lean();
+    if (!existing) {
+      break;
+    }
+    candidate = '';
+    attempts += 1;
+  }
+
+  if (!candidate) {
+    throw new Error('Unable to generate a unique phone number');
+  }
+
+  userDoc.phoneNumber = candidate;
+  await userDoc.save();
+  return candidate;
+}
+
+function getFirstName(rawName?: string): string {
+  const trimmed = (rawName || '').trim();
+  if (!trimmed) return 'Customer';
+  const parts = trimmed.split(/\s+/);
+  return parts[0] || 'Customer';
+}
+
 // Initialize Ercaspay client - MUST use baseURL (uppercase) not baseUrl
 const ercaspay = new Ercaspay({
   baseURL: ECRS_API_BASE,
   secretKey: ECRS_AUTH_KEY,
+});
+
+/**
+ * POST /api/payments/pocketfi/initiate
+ * Creates PocketFi virtual account details for wallet funding
+ */
+router.post('/pocketfi/initiate', async (req, res) => {
+  try {
+    const { amount, userId, email, firstName } = req.body;
+
+    if (!amount || !userId || !email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: amount, userId, email'
+      });
+    }
+
+    if (!POCKETFI_BASE_URL || !POCKETFI_BUSINESS_ID) {
+      return res.status(503).json({
+        success: false,
+        error: 'PocketFi is not configured yet. Please set POCKETFI_BASE_URL and POCKETFI_BUSINESS_ID.'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const phoneNumber = await ensurePhoneNumber(user);
+    const paymentReference = `pocketfi_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+    const payload = {
+      first_name: getFirstName(firstName || user.name),
+      last_name: '',
+      phone: phoneNumber,
+      email: user.email,
+      businessId: POCKETFI_BUSINESS_ID,
+      bank: process.env.POCKETFI_BANK || 'kuda',
+      nin: process.env.POCKETFI_NIN || undefined,
+      bvn: process.env.POCKETFI_BVN || undefined,
+    };
+
+    const response = await axios.post(
+      `${POCKETFI_BASE_URL.replace(/\/$/, '')}${POCKETFI_CREATE_ENDPOINT.startsWith('/') ? POCKETFI_CREATE_ENDPOINT : `/${POCKETFI_CREATE_ENDPOINT}`}`,
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(POCKETFI_API_KEY ? { Authorization: `Bearer ${POCKETFI_API_KEY}` } : {}),
+        },
+        timeout: 30000,
+      }
+    );
+
+    const gatewayData = response.data || {};
+    const paymentRecord = await Payment.create({
+      user: user._id,
+      userLocalId: userId,
+      email: user.email,
+      amount: Number(amount) || 0,
+      method: 'pocketfi',
+      status: 'pending',
+      reference: paymentReference,
+      transactionReference: gatewayData.reference || gatewayData.transaction?.reference || paymentReference,
+      isCredited: false,
+    });
+
+    return res.status(200).json({
+      success: true,
+      paymentReference,
+      transactionReference: paymentRecord.transactionReference,
+      accountName: gatewayData.accountName || gatewayData.account_name || gatewayData.name || getFirstName(firstName || user.name),
+      accountNumber: gatewayData.accountNumber || gatewayData.account_number || gatewayData.virtualAccountNumber || gatewayData.virtual_account_number,
+      bankName: gatewayData.bankName || gatewayData.bank_name || gatewayData.bank || payload.bank,
+      message: gatewayData.message || 'Use the details below to complete your payment.',
+      raw: gatewayData,
+    });
+  } catch (error: any) {
+    console.error('PocketFi initiate error:', error?.response?.data || error.message);
+    return res.status(500).json({
+      success: false,
+      error: error?.response?.data?.message || error.message || 'Failed to initiate PocketFi payment',
+    });
+  }
 });
 
 /**
@@ -319,6 +453,81 @@ router.get('/verify', async (req, res) => {
       error: error.responseData?.responseMessage || error.message || 'Internal server error',
       status: 'failed',
     });
+  }
+});
+
+router.post('/pocketfi/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    if (!POCKETFI_SECRET_KEY) {
+      return res.status(500).json({ message: 'PocketFi secret key is not configured' });
+    }
+
+    const payload = req.body.toString();
+    const signature = String(req.headers['http_pocketfi_signature'] || req.headers['HTTP_POCKETFI_SIGNATURE'] || '');
+    const hash = crypto.createHmac('sha512', POCKETFI_SECRET_KEY).update(payload).digest('hex');
+
+    if (signature !== hash) {
+      return res.status(400).json({ message: 'Invalid signature' });
+    }
+
+    const data = JSON.parse(payload);
+    const reference = data?.transaction?.reference || data?.reference;
+    const amount = Number(data?.order?.amount || 0);
+
+    if (!reference) {
+      return res.status(400).json({ message: 'Missing transaction reference' });
+    }
+
+    const payment = await Payment.findOne({
+      $or: [
+        { reference: reference },
+        { transactionReference: reference }
+      ]
+    });
+
+    if (payment && payment.isCredited) {
+      return res.status(200).json({ message: 'already processed' });
+    }
+
+    if (payment && payment.user && amount > 0) {
+      const user = await User.findById(payment.user);
+      if (user) {
+        const updatedUser = await User.findByIdAndUpdate(
+          payment.user,
+          { $inc: { balance: amount } },
+          { new: true }
+        );
+
+        payment.status = 'completed';
+        payment.isCredited = true;
+        await payment.save();
+
+        return res.status(200).json({
+          message: 'success',
+          newBalance: updatedUser?.balance || user.balance || 0,
+        });
+      }
+    }
+
+    if (payment) {
+      payment.status = 'completed';
+      await payment.save();
+      return res.status(200).json({ message: 'saved without crediting' });
+    }
+
+    await Payment.create({
+      amount,
+      method: 'pocketfi',
+      status: 'completed',
+      reference,
+      transactionReference: reference,
+      isCredited: false,
+    });
+
+    return res.status(200).json({ message: 'received' });
+  } catch (error: any) {
+    console.error('PocketFi webhook error:', error);
+    return res.status(400).json({ message: 'Webhook processing failed' });
   }
 });
 

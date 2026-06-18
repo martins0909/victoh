@@ -60,6 +60,41 @@ function sha256Hex(input: string): string {
   return crypto.createHash("sha256").update(input).digest("hex");
 }
 
+const PHONE_PREFIXES = ["070", "080", "081", "090"];
+
+function generatePhoneNumber(): string {
+  const prefix = PHONE_PREFIXES[Math.floor(Math.random() * PHONE_PREFIXES.length)];
+  const suffix = Math.floor(10000000 + Math.random() * 90000000).toString();
+  return `${prefix}${suffix}`;
+}
+
+async function ensureUserPhoneNumber(user: any): Promise<string> {
+  if (user.phoneNumber && /^0[7890]\d{8}$/.test(user.phoneNumber)) {
+    return user.phoneNumber;
+  }
+
+  let assignedPhone = "";
+  let attempts = 0;
+
+  while (attempts < 20) {
+    assignedPhone = generatePhoneNumber();
+    const existingUser = await User.findOne({ phoneNumber: assignedPhone }).lean();
+    if (!existingUser) {
+      break;
+    }
+    assignedPhone = "";
+    attempts += 1;
+  }
+
+  if (!assignedPhone) {
+    throw new Error("Unable to generate a unique phone number for user");
+  }
+
+  user.phoneNumber = assignedPhone;
+  await user.save();
+  return assignedPhone;
+}
+
 async function sendPasswordResetEmail(toEmail: string, resetLink: string): Promise<void> {
   // Prefer Resend if configured
   if (RESEND_API_KEY && RESEND_FROM) {
@@ -236,6 +271,8 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
       name: name || undefined,
       balance: 0
     });
+
+    await ensureUserPhoneNumber(user);
     
     res.json({ 
       ok: true, 
@@ -243,7 +280,8 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
         id: user._id, 
         email: user.email, 
         name: user.name,
-        balance: user.balance 
+        balance: user.balance,
+        phoneNumber: user.phoneNumber
       } 
     });
   } catch (err) {
@@ -265,6 +303,8 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
     
     const match = await bcrypt.compare(rawPassword, user.password);
     if (!match) return res.status(401).json({ error: "Invalid credentials" });
+
+    const phoneNumber = await ensureUserPhoneNumber(user);
     
     res.json({ 
       ok: true, 
@@ -272,7 +312,8 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
         id: user._id, 
         email: user.email, 
         name: user.name,
-        balance: user.balance 
+        balance: user.balance,
+        phoneNumber
       } 
     });
   } catch (err) {
@@ -366,6 +407,33 @@ app.get("/api/users", requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
+app.post("/api/users/backfill-phone-numbers", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const users = await User.find({
+      $or: [
+        { phoneNumber: { $exists: false } },
+        { phoneNumber: null },
+        { phoneNumber: "" }
+      ]
+    });
+
+    let assignedCount = 0;
+    for (const user of users) {
+      try {
+        await ensureUserPhoneNumber(user);
+        assignedCount += 1;
+      } catch (err) {
+        console.error("Failed to assign phone number to user", user._id, err);
+      }
+    }
+
+    res.json({ ok: true, assignedCount, totalMissing: users.length });
+  } catch (err) {
+    console.error("Error backfilling phone numbers:", err);
+    res.status(500).json({ error: "Failed to backfill phone numbers" });
+  }
+});
+
 // Get current user data by ID (for balance refresh)
 app.get("/api/users/current/:id", async (req: Request, res: Response) => {
   try {
@@ -373,13 +441,16 @@ app.get("/api/users/current/:id", async (req: Request, res: Response) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(404).json({ error: "User not found" });
     }
-    const user = await User.findById(id).lean();
+    const user = await User.findById(id);
     if (!user) return res.status(404).json({ error: "User not found" });
+
+    const phoneNumber = user.phoneNumber || await ensureUserPhoneNumber(user);
     res.json({
       id: user._id,
       email: user.email,
       name: user.name,
-      balance: user.balance || 0
+      balance: user.balance || 0,
+      phoneNumber
     });
   } catch (err) {
     console.error("Error fetching current user:", err);
