@@ -2198,7 +2198,7 @@ const Shop = () => {
             <Button
               variant="outline"
               onClick={() => {
-                const details = `Bank: Moniepoint (MFB)\nAccount: 5022156956\nName: Okeke Victor Udochukwu\nDescription: Bills`;
+                const details = `Bank: Moniepoint (MFB)\nAccount: unavailable\nName: Okeke Victor Udochukwu\nDescription: Bills`;
                 navigator.clipboard.writeText(details);
                 toast.success("Bank details copied to clipboard!");
               }}
@@ -2251,7 +2251,7 @@ const Shop = () => {
                 setShowManualFundsDialog(true);
             }} variant="outline" className="w-full h-14 justify-start px-4 text-left font-semibold text-base border-2 hover:bg-gray-50 dark:hover:bg-[#18181b]">
               <Banknote className="mr-3 h-5 w-5" />
-              Manual deposit
+              Manual deposit unavailable!
             </Button>
           </div>
           <DialogFooter>
