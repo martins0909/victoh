@@ -2163,7 +2163,7 @@ const Shop = () => {
                   <span className="font-mono text-lg font-bold text-purple-600 dark:text-purple-400">5022156956</span>
                   <button 
                     onClick={() => {
-                      navigator.clipboard.writeText("5022156956");
+                      navigator.clipboard.writeText("unavailable");
                       toast.success("Account number copied!");
                     }}
                     className="p-1 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded transition-colors"
