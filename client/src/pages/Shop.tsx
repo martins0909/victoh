@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { apiFetch, catalogAPI, purchaseHistoryAPI, catalogCategoriesAPI, warmBackend } from "@/lib/api";
-import { Banknote, ChevronDown, History, Copy, Home, Menu, LogIn, FileText, Headphones, MessageCircle, Wallet, Eye, EyeOff, CreditCard, Zap } from "lucide-react";
+import { Banknote, ChevronDown, History, Copy, Home, Menu, LogIn, FileText, Headphones, MessageCircle, Wallet, Eye, EyeOff, CreditCard, Zap, Repeat, ShoppingBag, Smartphone, User, Lock, Bell, UserCircle, Moon, Sun, Search } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import bannerImg from "@/assets/ban.jpg";
 import bannerLog1 from "@/assets/bannerlog1.jpg";
 import bannerLog2 from "@/assets/bannerlog2.jpg";
@@ -75,6 +76,7 @@ const Shop = () => {
   const [showCustomerCareOptions, setShowCustomerCareOptions] = useState(false);
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
+  const [showMoreDrawer, setShowMoreDrawer] = useState(false);
   const [api, setApi] = useState<CarouselApi>();
 
   useEffect(() => {
@@ -128,6 +130,8 @@ const Shop = () => {
   const [showPurchaseSummaryDialog, setShowPurchaseSummaryDialog] = useState(false);
   const [showManualFundsDialog, setShowManualFundsDialog] = useState(false);
   const [showPaymentMethodDialog, setShowPaymentMethodDialog] = useState(false);
+  const [showAddMoneyDialog, setShowAddMoneyDialog] = useState(false);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [showQuickPayDetailsDialog, setShowQuickPayDetailsDialog] = useState(false);
   const [quickPayDetails, setQuickPayDetails] = useState<{
     accountName?: string;
@@ -776,6 +780,8 @@ const Shop = () => {
         onShopPurchaseHistoryClick={() => setShowPurchaseHistory(true)}
         onShopDepositHistoryClick={() => setShowDepositHistory(true)}
         onShopSignOutClick={handleSignOut}
+        shopBalance={user.balance}
+        onShopNotificationClick={() => setShowNotificationModal(true)}
       />
 
       {/* Notification Modal */}
@@ -905,49 +911,14 @@ const Shop = () => {
       </Dialog>
 
       <div className="pt-20 md:pt-24 relative">
-        {/* Banner Section with Welcome Badge - Full Width */}
-        <div className="relative mb-6 animate-in fade-in slide-in-from-top duration-500">
-          {/* <a 
-            href="https://chat.whatsapp.com/HCE6nkuaxXm4j2ugwW5exb" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="hidden md:block relative overflow-hidden rounded-2xl shadow-xl border-2 border-white/60 dark:border-gray-800 hover:border-purple-400 transition-colors mx-auto w-3/4 md:w-full"
-          >
-            <img
-              src={bannerImg}
-              alt="Premium products banner"
-              className="w-full h-7 md:h-44 object-cover select-none"
-              draggable={false}
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-900/20 via-purple-900/20 to-purple-900/20 mix-blend-multiply"></div>
-          </a> */}
-          
-          {/* Title moved below banner */}
-          <h1 className="mt-2 md:mt-6 text-center text-3xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500 tracking-tight">
-            Shop Correct LOGs
+        {/* Mobile Greeting Header */}
+        <div className="block md:hidden px-4 mb-5 animate-in fade-in slide-in-from-top duration-500">
+          <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100">
+            Hello {user.name || user.email.split("@")[0]} <span className="inline-block">👋</span>
           </h1>
-
-          {/* Welcome badge positioned below title */}
-          <div className="flex justify-center mt-2 md:mt-4">
-            <div className="flex items-center gap-1 md:gap-2 bg-white/90 dark:bg-black/90 backdrop-blur-xl px-3 py-1.5 md:px-4 md:py-2 rounded-full shadow-sm border border-gray-200 dark:border-gray-700">
-              <span className="text-[10px] md:text-sm text-gray-600 dark:text-gray-400 font-semibold">Welcome</span>
-              <span className="text-xs md:text-base text-gray-700 dark:text-gray-300 font-medium">
-                {user.name || user.email.split('@')[0]}
-              </span>
-              <BadgeCheck className="h-3 w-3 md:h-5 md:w-5 text-purple-600" />
-            </div>
-          </div>
-
-          <div className="md:hidden flex justify-center mt-2">
-            <a
-              href="https://viktohs-sms.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-semibold text-purple-600 dark:text-purple-400 underline"
-            >
-              Click here to Buy SMS
-            </a>
-          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Here's an overview of your account's recent activity.
+          </p>
         </div>
 
         <div className="px-0 md:px-6">
@@ -975,50 +946,90 @@ const Shop = () => {
             </div> */}
 
             {/* Mobile wallet card */}
-            <Card className="block md:hidden ml-[5%] w-[85%] mb-6 bg-white/95 dark:bg-black/95 backdrop-blur-xl shadow-2xl border border-white/60 dark:border-gray-800 animate-in fade-in duration-700 rounded-xl">
-              <CardHeader className="p-4 pb-3">
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-purple-600 to-purple-600 shadow-lg">
-                  <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 border border-white/30">
-                    <Wallet className="h-5 w-5 text-white" />
+            <Card className="block md:hidden mx-4 mb-6 overflow-hidden rounded-3xl border-0 shadow-2xl animate-in fade-in duration-700">
+              <div className="relative bg-gradient-to-br from-purple-900 via-purple-800 to-purple-950 p-5 text-white">
+                {/* subtle glow */}
+                <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-purple-500/20 blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 h-32 w-32 rounded-full bg-fuchsia-500/10 blur-2xl"></div>
+
+                {/* Header */}
+                <div className="relative flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2 text-purple-100/80">
+                    <Wallet className="h-4 w-4" />
+                    <span className="text-xs font-semibold uppercase tracking-widest">Wallet Balance</span>
                   </div>
-                  <div>
-                    <CardTitle className="text-lg font-bold text-white mb-0.5">Your Wallet</CardTitle>
-                    <CardDescription className="text-sm font-medium text-purple-100 flex items-center">
-                      Balance: 
-                      <span className="text-white font-bold text-lg ml-1.5">
-                        {showBalance ? `₦${Math.max(0, user.balance || 0).toFixed(2)}` : '••••••'}
-                      </span>
-                      <button 
-                        onClick={() => setShowBalance(!showBalance)} 
-                        className="ml-2 p-1 hover:bg-white/10 rounded-full transition-colors"
-                        aria-label={showBalance ? "Hide balance" : "Show balance"}
-                      >
-                        {showBalance ? <EyeOff className="h-4 w-4 text-purple-100" /> : <Eye className="h-4 w-4 text-purple-100" />}
-                      </button>
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0 px-4 pb-4">
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Enter amount"
-                    value={addFundsAmount}
-                    onChange={(e) => setAddFundsAmount(e.target.value)}
-                    min="0"
-                    step="0.01"
-                    className="h-10 border-2 border-gray-200 dark:border-gray-700 focus:border-purple-500 transition-all duration-300 rounded-xl bg-white dark:bg-[#09090b] text-gray-900 dark:text-gray-100 text-sm"
-                  />
-                  <Button 
-                    onClick={handleAddFunds}
-                    className="h-10 px-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-sm w-full"
+                  <button
+                    onClick={() => setShowBalance(!showBalance)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm transition-colors hover:bg-white/20"
+                    aria-label={showBalance ? "Hide balance" : "Show balance"}
                   >
-                    <Plus className="h-3 w-3 mr-2" />
-                    Add Funds
-                  </Button>
+                    {showBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
-              </CardContent>
+
+                {/* Balance */}
+                <div className="relative mb-5">
+                  <div className="text-4xl font-extrabold tracking-tight">
+                    {showBalance ? `₦${Math.max(0, user.balance || 0).toLocaleString("en-NG", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "••••••"}
+                  </div>
+                  <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-purple-100 backdrop-blur-sm">
+                    USD {showBalance ? `$${(Math.max(0, user.balance || 0) / 1400).toFixed(2)}` : "••••"}
+                  </div>
+                </div>
+
+                {/* User name */}
+                <div className="relative mb-5 text-right text-xs font-semibold uppercase tracking-widest text-purple-100/70">
+                  {(user.name || user.email.split("@")[0]).slice(0, 12).toUpperCase()}
+                </div>
+
+                {/* Divider */}
+                <div className="relative mb-5 h-px w-full bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+
+                {/* Action buttons */}
+                <div className="relative grid grid-cols-3 gap-3">
+                  <button
+                    onClick={() => setShowAddMoneyDialog(true)}
+                    className="flex flex-col items-center gap-2 rounded-2xl bg-white/10 p-3 backdrop-blur-sm transition-transform hover:scale-[1.02] hover:bg-white/15 active:scale-95"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-purple-900">
+                      <Plus className="h-5 w-5" />
+                    </div>
+                    <span className="text-xs font-medium text-purple-50">Add money</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowConvertDialog(true)}
+                    className="flex flex-col items-center gap-2 rounded-2xl bg-white/10 p-3 backdrop-blur-sm transition-transform hover:scale-[1.02] hover:bg-white/15 active:scale-95"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white">
+                      <Repeat className="h-5 w-5" />
+                    </div>
+                    <span className="text-xs font-medium text-purple-50">Convert</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const firstCategory = categoriesWithProducts[0];
+                      if (firstCategory) {
+                        scrollToCategory(firstCategory);
+                      } else {
+                        const productsSection = document.getElementById("products-section");
+                        if (productsSection) {
+                          const offset = 100;
+                          const elementPosition = productsSection.getBoundingClientRect().top + window.pageYOffset;
+                          window.scrollTo({ top: elementPosition - offset, behavior: "smooth" });
+                        }
+                      }
+                    }}
+                    className="flex flex-col items-center gap-2 rounded-2xl bg-white/10 p-3 backdrop-blur-sm transition-transform hover:scale-[1.02] hover:bg-white/15 active:scale-95"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white">
+                      <ShoppingBag className="h-5 w-5" />
+                    </div>
+                    <span className="text-xs font-medium text-purple-50">Buy accounts</span>
+                  </button>
+                </div>
+              </div>
             </Card>
 
             {/* Desktop/tablet wallet card (hidden on small screens) */}
@@ -1069,8 +1080,96 @@ const Shop = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Mobile Quick Actions */}
+            <div className="block md:hidden px-4 mb-6 animate-in fade-in slide-in-from-bottom duration-500">
+              <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-3">Quick actions</h2>
+              <div className="grid grid-cols-4 gap-3">
+                <a
+                  href="https://viktohs-sms.com/signin"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900">
+                    <Smartphone className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Numbers</span>
+                </a>
+
+                <a
+                  href="https://viktohs-sms.com/signin"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900">
+                    <Zap className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">SMM</span>
+                </a>
+
+                <button
+                  onClick={() => setShowPurchaseHistory(true)}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900">
+                    <User className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Accounts</span>
+                </button>
+
+                <button
+                  onClick={() => setShowBalanceModal(true)}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900">
+                    <Lock className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Vault</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile Stats Cards */}
+            <div className="block md:hidden px-4 mb-6 animate-in fade-in slide-in-from-bottom duration-500">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-white dark:bg-black border border-gray-100 dark:border-gray-800 p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400">
+                      <User className="h-4 w-4" />
+                    </div>
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Accounts owned</span>
+                  </div>
+                  <div className="text-2xl font-extrabold text-gray-900 dark:text-gray-100">
+                    {purchaseHistory.length}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-white dark:bg-black border border-gray-100 dark:border-gray-800 p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400">
+                      <ShoppingBag className="h-4 w-4" />
+                    </div>
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Orders placed</span>
+                  </div>
+                  <div className="text-2xl font-extrabold text-gray-900 dark:text-gray-100">
+                    {(() => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      return purchaseHistory.filter((item) => {
+                        const d = new Date(item.purchaseDate);
+                        d.setHours(0, 0, 0, 0);
+                        return d.getTime() === today.getTime();
+                      }).length;
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Products and Buy Dialog */}
-            <div className="grid lg:grid-cols-1 gap-8">
+            <div id="products-section" className="grid lg:grid-cols-1 gap-8">
               {/* Products Grid */}
               <div className="lg:col-span-1">
 
@@ -1443,8 +1542,8 @@ const Shop = () => {
         </div>
       </div>
     </div>
-      {/* Floating Telegram Support (bottom-right) */}
-      <div className="fixed bottom-8 right-6 z-50">
+      {/* Floating Help Support (bottom-right) */}
+      <div className="fixed bottom-24 md:bottom-8 right-5 z-50">
         <a
           href="https://t.me/+0v09JFhl1sZjYTlk"
           target="_blank"
@@ -1452,12 +1551,12 @@ const Shop = () => {
           className="flex flex-col items-center gap-1 group"
           aria-label="Contact us on Telegram"
         >
-          <div className="flex items-center justify-center w-14 h-14 bg-purple-500 hover:bg-purple-600 text-white rounded-full shadow-2xl group-hover:scale-110 transition-all duration-300">
-            <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
-            </svg>
+          <span className="mb-1 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-md">
+            HELP
+          </span>
+          <div className="flex items-center justify-center w-12 h-12 bg-gray-900 hover:bg-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700 text-white rounded-full shadow-2xl group-hover:scale-110 transition-all duration-300 border-2 border-white dark:border-gray-700">
+            <Headphones className="h-5 w-5" />
           </div>
-          <span className="text-xs font-medium text-gray-700 bg-white/80 backdrop-blur px-2 py-1 rounded-full shadow">online agent</span>
         </a>
       </div>
       </div>
@@ -2228,6 +2327,133 @@ const Shop = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Add Money Dialog */}
+      <Dialog open={showAddMoneyDialog} onOpenChange={setShowAddMoneyDialog}>
+        <DialogContent className="sm:max-w-md w-[90%] rounded-2xl bg-white dark:bg-black border-0 shadow-2xl p-0 overflow-hidden">
+          <div className="bg-gradient-to-br from-purple-900 via-purple-800 to-purple-950 p-5 text-white">
+            <div className="flex items-center gap-2 text-purple-100/80 mb-2">
+              <Wallet className="h-4 w-4" />
+              <span className="text-xs font-semibold uppercase tracking-widest">Wallet Balance</span>
+            </div>
+            <div className="text-3xl font-extrabold tracking-tight">
+              ₦{Math.max(0, user.balance || 0).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+
+          <div className="p-5 space-y-5">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                Enter amount
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">₦</span>
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={addFundsAmount}
+                  onChange={(e) => setAddFundsAmount(e.target.value)}
+                  min="100"
+                  step="100"
+                  className="h-14 pl-8 pr-4 text-lg font-bold border-2 border-gray-200 dark:border-gray-700 focus:border-purple-500 rounded-xl bg-white dark:bg-[#09090b] text-gray-900 dark:text-gray-100"
+                  autoFocus
+                />
+              </div>
+              {addFundsAmount && !isNaN(parseFloat(addFundsAmount)) && parseFloat(addFundsAmount) > 0 && (
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  ≈ ${(parseFloat(addFundsAmount) / 1400).toFixed(2)} USD
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">
+                Quick amounts
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[500, 1000, 5000, 10000, 20000, 50000].map((amt) => (
+                  <button
+                    key={amt}
+                    onClick={() => setAddFundsAmount(amt.toString())}
+                    className={`py-2.5 px-2 rounded-xl text-sm font-semibold transition-colors border ${
+                      addFundsAmount === amt.toString()
+                        ? "bg-purple-600 text-white border-purple-600"
+                        : "bg-gray-50 dark:bg-[#09090b] text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-purple-50 dark:hover:bg-purple-950"
+                    }`}
+                  >
+                    ₦{amt.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              onClick={() => {
+                const amount = parseFloat(addFundsAmount);
+                if (isNaN(amount) || amount <= 0) {
+                  toast.error("Please enter a valid amount");
+                  return;
+                }
+                setShowAddMoneyDialog(false);
+                setShowPaymentMethodDialog(true);
+              }}
+              className="w-full h-14 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all"
+            >
+              Select Payment Method
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Convert Dialog */}
+      <Dialog open={showConvertDialog} onOpenChange={setShowConvertDialog}>
+        <DialogContent className="sm:max-w-sm w-[90%] rounded-2xl bg-white dark:bg-black border-0 shadow-2xl p-0 overflow-hidden">
+          <div className="bg-gradient-to-br from-purple-900 via-purple-800 to-purple-950 p-6 text-white text-center">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+              <Repeat className="h-7 w-7" />
+            </div>
+            <h3 className="text-lg font-bold mb-1">Currency Conversion</h3>
+            <p className="text-sm text-purple-100/80">Rate: ₦1,400 = $1.00</p>
+          </div>
+
+          <div className="p-6 space-y-5">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-xl bg-gray-50 dark:bg-[#09090b] p-4 border border-gray-200 dark:border-gray-700">
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Naira Balance</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                    ₦{Math.max(0, user.balance || 0).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <span className="text-xs font-bold text-purple-600 bg-purple-100 dark:bg-purple-950 px-2 py-1 rounded-lg">NGN</span>
+              </div>
+
+              <div className="flex justify-center">
+                <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                  <Repeat className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl bg-purple-50 dark:bg-purple-950/30 p-4 border border-purple-200 dark:border-purple-900">
+                <div>
+                  <p className="text-xs text-purple-600 dark:text-purple-300 uppercase tracking-wider">Dollar Equivalent</p>
+                  <p className="text-xl font-bold text-purple-900 dark:text-purple-100">
+                    ${(Math.max(0, user.balance || 0) / 1400).toFixed(2)}
+                  </p>
+                </div>
+                <span className="text-xs font-bold text-purple-600 bg-purple-100 dark:bg-purple-900 px-2 py-1 rounded-lg">USD</span>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setShowConvertDialog(false)}
+              className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Payment Method Selection Dialog */}
       <Dialog open={showPaymentMethodDialog} onOpenChange={setShowPaymentMethodDialog}>
         <DialogContent className="sm:max-w-md w-[90%] rounded-xl">
@@ -2302,68 +2528,142 @@ const Shop = () => {
 
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-black/95 backdrop-blur-xl border-t-2 border-white/60 dark:border-gray-800 shadow-2xl">
-        <div className="flex items-center justify-around py-2 px-4">
+        <div className="flex items-end justify-around py-2 px-2">
           <button
             onClick={() => navigate("/")}
             className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-all duration-300 group min-w-0 flex-1"
             aria-label="Home"
           >
-            <Home className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">Home</span>
+            <Home className="h-5 w-5 text-purple-600 dark:text-purple-400 transition-colors" />
+            <span className="text-xs font-medium text-purple-600 dark:text-purple-400 transition-colors">Home</span>
           </button>
-          
-          <button
-            onClick={() => {
-              // Scroll to enter amount input
-              const enterAmountInput = document.querySelector('input[placeholder="Enter amount"]');
-              if (enterAmountInput) {
-                enterAmountInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }}
+
+          <a
+            href="https://viktohs-sms.com/signin"
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-all duration-300 group min-w-0 flex-1"
+            aria-label="SMM"
+          >
+            <Zap className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">SMM</span>
+          </a>
+
+          <button
+            onClick={() => setShowAddMoneyDialog(true)}
+            className="flex flex-col items-center justify-center -mt-6 mx-1"
             aria-label="Add Funds"
           >
-            <Wallet className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">Fund</span>
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-600 text-white shadow-lg shadow-purple-600/30 hover:bg-purple-700 active:scale-95 transition-all">
+              <Plus className="h-7 w-7" />
+            </div>
           </button>
-          
-          <button
-            onClick={() => setShowCategoryDrawer(true)}
-            className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-all duration-300 group min-w-0 flex-1"
-            aria-label="Categories"
-          >
-            <Menu className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">Category</span>
-          </button>
-          
+
           <button
             onClick={() => setShowPurchaseHistory(true)}
             className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-all duration-300 group min-w-0 flex-1 relative"
-            aria-label="Purchase History"
+            aria-label="Cart"
           >
             <div className="relative">
-              <ShoppingCart className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
+              <ShoppingBag className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
               {purchaseHistory.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center shadow-lg">
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center shadow-lg">
                   {purchaseHistory.length}
                 </span>
               )}
             </div>
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">Order</span>
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">Cart</span>
           </button>
-          
-          <button
-            onClick={() => setShowDepositHistory(true)}
-            className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-all duration-300 group min-w-0 flex-1"
-            aria-label="Deposit History"
-          >
-            <History className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">Deposit</span>
-          </button>
-          
 
+          <button
+            onClick={() => setShowMoreDrawer(true)}
+            className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-all duration-300 group min-w-0 flex-1"
+            aria-label="More"
+          >
+            <Menu className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">More</span>
+          </button>
         </div>
       </div>
+
+      {/* Mobile More Drawer */}
+      {showMoreDrawer && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+            onClick={() => setShowMoreDrawer(false)}
+          />
+          <div className={`fixed bottom-0 left-0 right-0 z-50 md:hidden transform transition-transform duration-300 ease-in-out ${
+            showMoreDrawer ? 'translate-y-0' : 'translate-y-full'
+          }`}>
+            <div className="bg-white dark:bg-black rounded-t-3xl shadow-2xl border-t border-gray-200 dark:border-gray-800 p-4 pb-8">
+              <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-4"></div>
+              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 px-2">More options</h3>
+              <div className="grid grid-cols-5 gap-2">
+                <button
+                  onClick={() => { setShowCategoryDrawer(true); setShowMoreDrawer(false); }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400">
+                    <Menu className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Categories</span>
+                </button>
+
+                <button
+                  onClick={() => { setShowDepositHistory(true); setShowMoreDrawer(false); }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400">
+                    <History className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Deposits</span>
+                </button>
+
+                <button
+                  onClick={() => { setShowBalanceModal(true); setShowMoreDrawer(false); }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400">
+                    <Wallet className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Balance</span>
+                </button>
+
+                <button
+                  onClick={() => { navigate("/?focusSearch=1"); setShowMoreDrawer(false); }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400">
+                    <Search className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Search</span>
+                </button>
+
+                <button
+                  onClick={() => { setShowMenuDrawer(true); setShowMoreDrawer(false); }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400">
+                    <UserCircle className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Profile</span>
+                </button>
+              </div>
+
+              <div className="mt-4 px-2">
+                <div className="flex items-center justify-between rounded-2xl bg-gray-50 dark:bg-[#09090b] p-3 border border-gray-200 dark:border-gray-800">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <Moon className="h-4 w-4" />
+                    Dark mode
+                  </span>
+                  <ThemeToggle />
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

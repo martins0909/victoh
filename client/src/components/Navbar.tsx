@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { History, Menu, MoreVertical, ChevronDown, Search } from "lucide-react";
+import { History, Menu, MoreVertical, ChevronDown, Search, Bell, UserCircle, Wallet } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useRef, useState, useEffect } from "react";
@@ -22,6 +22,8 @@ interface NavbarProps {
   onShopPurchaseHistoryClick?: () => void;
   onShopDepositHistoryClick?: () => void;
   onShopSignOutClick?: () => void;
+  shopBalance?: number;
+  onShopNotificationClick?: () => void;
 }
 
 const Navbar = ({
@@ -36,6 +38,8 @@ const Navbar = ({
   onShopPurchaseHistoryClick,
   onShopDepositHistoryClick,
   onShopSignOutClick,
+  shopBalance,
+  onShopNotificationClick,
 }: NavbarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -196,6 +200,35 @@ const Navbar = ({
           <div className="flex-1" />
 
           <div className="flex items-center gap-2 md:gap-3">
+            {/* Mobile shop navbar right side: balance, notifications, profile */}
+            {isShopPage && (
+              <div className="flex md:hidden items-center gap-2">
+                <button
+                  onClick={onShopBalanceClick}
+                  className="flex items-center gap-1.5 rounded-full bg-purple-100 dark:bg-purple-900/40 px-3 py-1.5 text-sm font-bold text-purple-700 dark:text-purple-300"
+                >
+                  <Wallet className="h-4 w-4" />
+                  ₦{Math.max(0, shopBalance || 0).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </button>
+
+                <button
+                  onClick={onShopNotificationClick}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#18181b] transition-colors"
+                  aria-label="Notifications"
+                >
+                  <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                </button>
+
+                <button
+                  onClick={onGeneralMenuClick}
+                  className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-[#18181b] transition-colors"
+                  aria-label="Open profile menu"
+                >
+                  <UserCircle className="h-7 w-7 text-purple-600 dark:text-purple-400" />
+                </button>
+              </div>
+            )}
+
             {!isShopPage && (
               <div className="hidden md:flex items-center gap-2">
                 <DropdownMenu>
@@ -237,8 +270,8 @@ const Navbar = ({
               </div>
             )}
 
-            {/* Product search */}
-            <div className="relative">
+            {/* Product search - hidden on mobile shop page */}
+            <div className={`relative ${isShopPage ? "hidden md:block" : ""}`}>
               <button
                 type="button"
                 onClick={() => setSearchOpen(v => !v)}
@@ -275,7 +308,10 @@ const Navbar = ({
               )}
             </div>
 
-            <ThemeToggle />
+            {/* Theme toggle - hidden on mobile shop page */}
+            <div className={isShopPage ? "hidden md:block" : ""}>
+              <ThemeToggle />
+            </div>
 
             {/* Shop: Desktop right-side Menu dropdown */}
             {isShopPage && (
@@ -337,15 +373,6 @@ const Navbar = ({
               </div>
             )}
 
-            {isShopPage && onGeneralMenuClick && (
-              <button
-                onClick={onGeneralMenuClick}
-                className="md:hidden p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#18181b] transition-colors"
-                aria-label="Open general menu"
-              >
-                <MoreVertical className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-              </button>
-            )}
             {isShopPage ? (
               <div className="relative cursor-pointer group hidden md:block" onClick={onCartClick}>
                 <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-[#09090b] flex items-center justify-center hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">
