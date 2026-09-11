@@ -40,6 +40,9 @@ interface CatalogProduct {
   price: number;
   image: string;
   serialNumbers?: SerialNumber[]; // Array of serial numbers
+  deliveryUrl?: string;
+  photosCount?: number;
+  videosCount?: number;
   createdAt?: string; // Made optional to match API response
 }
 
@@ -67,6 +70,9 @@ export default function AdminCatalog() {
   const [pDescription, setPDescription] = useState("");
   const [pPrice, setPPrice] = useState("");
   const [pImage, setPImage] = useState("");
+  const [pDeliveryUrl, setPDeliveryUrl] = useState("");
+  const [pPhotosCount, setPPhotosCount] = useState("");
+  const [pVideosCount, setPVideosCount] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
 
   // Serial number management
@@ -83,6 +89,9 @@ export default function AdminCatalog() {
   const [editingProduct, setEditingProduct] = useState<CatalogProduct | null>(null);
   const [editPrice, setEditPrice] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editDeliveryUrl, setEditDeliveryUrl] = useState("");
+  const [editPhotosCount, setEditPhotosCount] = useState("");
+  const [editVideosCount, setEditVideosCount] = useState("");
   const [editingInProgress, setEditingInProgress] = useState(false);
 
   // Derived lookup
@@ -190,6 +199,9 @@ export default function AdminCatalog() {
           image: p.image,
           category: p.category,
           serialNumbers: [] as SerialNumber[],
+          deliveryUrl: p.deliveryUrl,
+          photosCount: p.photosCount,
+          videosCount: p.videosCount,
         };
         const created = await catalogAPI.create(payload as unknown as Omit<CatalogProduct, 'createdAt'>);
         if (p.serialNumbers && p.serialNumbers.length > 0) {
@@ -360,12 +372,15 @@ export default function AdminCatalog() {
       price,
       image: pImage.trim(),
       serialNumbers: [],
+      deliveryUrl: pDeliveryUrl.trim() || undefined,
+      photosCount: parseInt(pPhotosCount) || 0,
+      videosCount: parseInt(pVideosCount) || 0,
     };
-    
+
     try {
       const created = await catalogAPI.create(prod);
       setProducts(prev => [...prev, created]);
-      setPName(""); setPCategory(""); setPDescription(""); setPPrice(""); setPImage("");
+      setPName(""); setPCategory(""); setPDescription(""); setPPrice(""); setPImage(""); setPDeliveryUrl(""); setPPhotosCount(""); setPVideosCount("");
       toast.success("Product added and saved");
     } catch (error) {
       console.error("Error adding product:", error);
@@ -628,6 +643,9 @@ export default function AdminCatalog() {
     setEditingProduct(product);
     setEditPrice(product.price.toString());
     setEditDescription(product.description);
+    setEditDeliveryUrl(product.deliveryUrl || "");
+    setEditPhotosCount((product.photosCount || 0).toString());
+    setEditVideosCount((product.videosCount || 0).toString());
     setEditDialogOpen(true);
   };
 
@@ -646,29 +664,36 @@ export default function AdminCatalog() {
     }
 
     setEditingInProgress(true);
-    
+
+    const updates = {
+      price,
+      description: editDescription.trim(),
+      deliveryUrl: editDeliveryUrl.trim() || undefined,
+      photosCount: parseInt(editPhotosCount) || 0,
+      videosCount: parseInt(editVideosCount) || 0,
+    };
+
     try {
-      await catalogAPI.update(editingProduct.id, {
-        price,
-        description: editDescription.trim()
-      });
-      
+      await catalogAPI.update(editingProduct.id, updates);
+
       setProducts(prev => prev.map(p => {
         if (p.id === editingProduct.id) {
           return {
             ...p,
-            price,
-            description: editDescription.trim()
+            ...updates,
           };
         }
         return p;
       }));
-      
+
       toast.success("Product updated successfully");
       setEditDialogOpen(false);
       setEditingProduct(null);
       setEditPrice("");
       setEditDescription("");
+      setEditDeliveryUrl("");
+      setEditPhotosCount("");
+      setEditVideosCount("");
     } catch (error) {
       console.error("Error updating product:", error);
       toast.error("Failed to update product. Please check your connection.");
@@ -779,6 +804,9 @@ export default function AdminCatalog() {
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 <Input placeholder="Price" type="number" min="0" step="0.01" value={pPrice} onChange={e => setPPrice(e.target.value)} />
+                <Input placeholder="Delivery URL (optional)" value={pDeliveryUrl} onChange={e => setPDeliveryUrl(e.target.value)} />
+                <Input placeholder="Photos count" type="number" min="0" value={pPhotosCount} onChange={e => setPPhotosCount(e.target.value)} />
+                <Input placeholder="Videos count" type="number" min="0" value={pVideosCount} onChange={e => setPVideosCount(e.target.value)} />
                 <div className="relative">
                   <Input 
                     type="file" 
@@ -863,7 +891,7 @@ export default function AdminCatalog() {
                         <div className="flex-1 min-w-0">
                           <h4 className="font-bold text-base mb-0.5 bg-clip-text text-transparent bg-gradient-to-r from-purple-700 to-purple-700 dark:from-purple-400 dark:to-purple-400 truncate">{prod.name}</h4>
                           <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">{prod.description}</p>
-                          <div className="flex gap-2 mt-1">
+                          <div className="flex flex-wrap gap-2 mt-1">
                             <Badge variant="outline" className="text-xs px-2 py-0.5 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:border-purple-800">
                               <Hash className="h-3 w-3 mr-1" />
                               {availableSerials} Available
@@ -871,6 +899,21 @@ export default function AdminCatalog() {
                             {usedSerials > 0 && (
                               <Badge variant="outline" className="text-xs px-2 py-0.5 bg-gray-50 text-gray-700 border-gray-200 dark:bg-[#09090b] dark:text-gray-400 dark:border-gray-700">
                                 {usedSerials} Used
+                              </Badge>
+                            )}
+                            {(prod.photosCount || 0) > 0 && (
+                              <Badge variant="outline" className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800">
+                                {prod.photosCount} Photos
+                              </Badge>
+                            )}
+                            {(prod.videosCount || 0) > 0 && (
+                              <Badge variant="outline" className="text-xs px-2 py-0.5 bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950 dark:text-pink-400 dark:border-pink-800">
+                                {prod.videosCount} Videos
+                              </Badge>
+                            )}
+                            {prod.deliveryUrl && (
+                              <Badge variant="outline" className="text-xs px-2 py-0.5 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
+                                Download
                               </Badge>
                             )}
                           </div>
@@ -1145,6 +1188,38 @@ export default function AdminCatalog() {
                 onChange={(e) => setEditDescription(e.target.value)}
                 className="min-h-[120px]"
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Delivery URL</label>
+              <Input
+                placeholder="Enter delivery download link"
+                value={editDeliveryUrl}
+                onChange={(e) => setEditDeliveryUrl(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Photos</label>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="Photos count"
+                  value={editPhotosCount}
+                  onChange={(e) => setEditPhotosCount(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Videos</label>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="Videos count"
+                  value={editVideosCount}
+                  onChange={(e) => setEditVideosCount(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 

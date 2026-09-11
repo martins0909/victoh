@@ -748,7 +748,13 @@ app.get("/api/catalog", async (req: Request, res: Response) => {
     // Admins can see serialNumbers (needed for inventory management)
     if (isAdmin) {
       const products = await CatalogProduct.find({}, "-image").sort({ createdAt: -1 }).lean();
-      const mapped = products.map(p => ({ ...p, image: `/api/catalog/${p.id}/image` }));
+      const mapped = products.map(p => ({
+        ...p,
+        image: `/api/catalog/${p.id}/image`,
+        deliveryUrl: p.deliveryUrl,
+        photosCount: p.photosCount || 0,
+        videosCount: p.videosCount || 0,
+      }));
       return res.json(mapped);
     }
 
@@ -784,7 +790,10 @@ app.get("/api/catalog", async (req: Request, res: Response) => {
         image: `/api/catalog/${p.id}/image`,
         category: p.category,
         createdAt: p.createdAt,
-        availableStock: p.cachedAvailableStock || 0,
+        availableStock: p.deliveryUrl ? 9999 : (p.cachedAvailableStock || 0),
+        deliveryUrl: p.deliveryUrl,
+        photosCount: p.photosCount || 0,
+        videosCount: p.videosCount || 0,
       }));
 
       console.timeEnd(`Catalog fetch - ${reqId}`);
@@ -1019,6 +1028,7 @@ app.post("/api/purchase/complete", async (req: Request, res: Response) => {
       newBalance: number;
       purchase: any;
       assignedSerials: string[];
+      deliveryUrl: string | null;
       updatedProduct: { id: string; availableStock: number };
     } | null = null;
 
@@ -1048,28 +1058,33 @@ app.post("/api/purchase/complete", async (req: Request, res: Response) => {
           throw Object.assign(new Error("Insufficient balance"), { statusCode: 400 });
         }
 
-        const serials = Array.isArray(catalogProduct.serialNumbers) ? catalogProduct.serialNumbers : [];
-        const available = serials.filter((s: any) => !s.isUsed);
-        if (available.length < qty) {
-          throw Object.assign(new Error(`Only ${available.length} units available in stock.`), { statusCode: 400 });
-        }
+        const isDownloadProduct = !!catalogProduct.deliveryUrl;
+        let assignedSerials: string[] = [];
+        let remainingAvailable = 0;
 
-        // Assign serials server-side (never expose whole pool to the client)
-        const chosen = available.slice(0, qty);
-        const assignedSerials = chosen.map((s: any) => s.serial);
-        const now = new Date();
-        for (const s of serials as any[]) {
-          if (chosen.some((c: any) => c.id === s.id)) {
-            s.isUsed = true;
-            s.usedBy = user.email;
-            s.usedAt = now;
+        if (!isDownloadProduct) {
+          const serials = Array.isArray(catalogProduct.serialNumbers) ? catalogProduct.serialNumbers : [];
+          const available = serials.filter((s: any) => !s.isUsed);
+          if (available.length < qty) {
+            throw Object.assign(new Error(`Only ${available.length} units available in stock.`), { statusCode: 400 });
           }
-        }
-        
-        const remainingAvailable = serials.filter((s: any) => !s.isUsed).length;
-        (catalogProduct as any).cachedAvailableStock = remainingAvailable;
 
-        await (catalogProduct as any).save({ session });
+          // Assign serials server-side (never expose whole pool to the client)
+          const chosen = available.slice(0, qty);
+          assignedSerials = chosen.map((s: any) => s.serial);
+          const now = new Date();
+          for (const s of serials as any[]) {
+            if (chosen.some((c: any) => c.id === s.id)) {
+              s.isUsed = true;
+              s.usedBy = user.email;
+              s.usedAt = now;
+            }
+          }
+
+          remainingAvailable = serials.filter((s: any) => !s.isUsed).length;
+          (catalogProduct as any).cachedAvailableStock = remainingAvailable;
+          await (catalogProduct as any).save({ session });
+        }
 
         const purchase = new PurchaseHistory({
           userId,
@@ -1082,6 +1097,7 @@ app.post("/api/purchase/complete", async (req: Request, res: Response) => {
           category: catalogProduct.category,
           quantity: qty,
           assignedSerials,
+          deliveryUrl: catalogProduct.deliveryUrl || undefined,
         });
         await purchase.save({ session } as any);
 
@@ -1096,9 +1112,10 @@ app.post("/api/purchase/complete", async (req: Request, res: Response) => {
           newBalance: updatedUser?.balance || 0,
           purchase,
           assignedSerials,
+          deliveryUrl: catalogProduct.deliveryUrl || null,
           updatedProduct: {
             id: catalogProduct.id,
-            availableStock: remainingAvailable,
+            availableStock: isDownloadProduct ? 9999 : remainingAvailable,
           },
         };
       });

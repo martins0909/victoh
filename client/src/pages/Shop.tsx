@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { apiFetch, catalogAPI, purchaseHistoryAPI, catalogCategoriesAPI, warmBackend } from "@/lib/api";
-import { Banknote, ChevronDown, History, Copy, Home, Menu, LogIn, FileText, Headphones, MessageCircle, Wallet, Eye, EyeOff, CreditCard, Zap, Repeat, ShoppingBag, Smartphone, User, Lock, Bell, UserCircle, Moon, Sun, Search } from "lucide-react";
+import { Banknote, ChevronDown, History, Copy, Home, Menu, LogIn, FileText, Headphones, MessageCircle, Wallet, Eye, EyeOff, CreditCard, Zap, Repeat, ShoppingBag, Smartphone, User, Lock, Bell, UserCircle, Moon, Sun, Search, ImageIcon } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import bannerImg from "@/assets/ban.jpg";
 import bannerLog1 from "@/assets/bannerlog1.jpg";
@@ -35,12 +35,16 @@ interface Product {
   category: string;
   serialNumbers?: SerialNumber[];
   availableStock?: number;
+  deliveryUrl?: string;
+  photosCount?: number;
+  videosCount?: number;
 }
 
 interface PurchaseHistoryItem extends Product {
   purchaseDate: string;
   quantity: number;
   assignedSerials?: string[]; // Array of serial numbers assigned to this purchase
+  deliveryUrl?: string;
 }
 
 // Basic user shape for typing localStorage data. Additional dynamic keys allowed as unknown.
@@ -133,6 +137,8 @@ const Shop = () => {
   const [showAddMoneyDialog, setShowAddMoneyDialog] = useState(false);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [showQuickPayDetailsDialog, setShowQuickPayDetailsDialog] = useState(false);
+  const [showWorkingPictures, setShowWorkingPictures] = useState(false);
+  const [workingPicturesSearch, setWorkingPicturesSearch] = useState("");
   const [quickPayDetails, setQuickPayDetails] = useState<{
     accountName?: string;
     accountNumber?: string;
@@ -144,6 +150,7 @@ const Shop = () => {
     product: Product | null;
     quantity: number;
     serials: string[];
+    deliveryUrl?: string;
     balanceBefore: number;
     balanceAfter: number;
   } | null>(null);
@@ -267,17 +274,18 @@ const Shop = () => {
       (async () => {
         try {
           const history = await purchaseHistoryAPI.getByUserId(userId);
-          setPurchaseHistory(history.map(h => ({
-            id: h.productId,
-            name: h.name,
-            description: h.description,
-            price: h.price,
-            image: h.image,
-            category: h.category,
-            quantity: h.quantity,
-            assignedSerials: h.assignedSerials,
-            purchaseDate: h.purchaseDate.toString()
-          })));
+      setPurchaseHistory(history.map(h => ({
+        id: h.productId,
+        name: h.name,
+        description: h.description,
+        price: h.price,
+        image: h.image,
+        category: h.category,
+        quantity: h.quantity,
+        assignedSerials: h.assignedSerials,
+        deliveryUrl: h.deliveryUrl,
+        purchaseDate: h.purchaseDate.toString()
+      })));
         } catch (e) {
           console.error("Failed to load purchase history", e);
         }
@@ -368,6 +376,7 @@ const Shop = () => {
         category: h.category,
         quantity: h.quantity,
         assignedSerials: h.assignedSerials,
+        deliveryUrl: h.deliveryUrl,
         purchaseDate: h.purchaseDate.toString()
       })));
 
@@ -376,6 +385,7 @@ const Shop = () => {
         product: selectedProduct,
         quantity: purchaseQuantity,
         serials: result.assignedSerials || [],
+        deliveryUrl: result.deliveryUrl || undefined,
         balanceBefore,
         balanceAfter: result.newBalance
       });
@@ -835,14 +845,16 @@ const Shop = () => {
 
       {/* Purchase Summary Dialog */}
       <Dialog open={showPurchaseSummaryDialog} onOpenChange={setShowPurchaseSummaryDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BadgeCheck className="h-5 w-5 text-green-600" />
               Purchase Successful
             </DialogTitle>
             <DialogDescription>
-              Your order has been completed. Below is your transaction summary and serial number(s).
+              {purchaseSummaryData?.deliveryUrl
+                ? "Your order has been completed. Copy the delivery link below to access your purchase."
+                : "Your order has been completed. Below is your transaction summary and serial number(s)."}
             </DialogDescription>
           </DialogHeader>
           {purchaseSummaryData && (
@@ -862,44 +874,79 @@ const Shop = () => {
                 <div className="font-semibold text-gray-700">Quantity:</div>
                 <div className="text-gray-800">{purchaseSummaryData.quantity}</div>
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-semibold text-gray-700">Log:</div>
-                  {purchaseSummaryData.serials.length > 1 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs"
+
+              {purchaseSummaryData.deliveryUrl ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Copy this delivery link and open it in your browser when you are ready
+                  </p>
+                  <div className="flex items-center gap-2 bg-gray-100 dark:bg-[#09090b] rounded-lg p-3 border border-gray-200 dark:border-gray-800">
+                    <span className="text-xs text-purple-700 dark:text-purple-300 break-all flex-1 font-mono">
+                      {purchaseSummaryData.deliveryUrl}
+                    </span>
+                    <button
+                      type="button"
                       onClick={() => {
-                        const allSerials = purchaseSummaryData.serials.join('\n');
-                        navigator.clipboard.writeText(allSerials);
-                        toast.success(`${purchaseSummaryData.serials.length} logs copied!`);
+                        navigator.clipboard.writeText(purchaseSummaryData.deliveryUrl || "");
+                        toast.success("Delivery link copied!");
                       }}
+                      className="flex-shrink-0 text-purple-600 hover:text-purple-800"
+                      aria-label="Copy delivery link"
                     >
-                      <Copy className="h-3 w-3 mr-1" />
-                      Copy All Logs
-                    </Button>
-                  )}
+                      <Copy className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      navigator.clipboard.writeText(purchaseSummaryData.deliveryUrl || "");
+                      toast.success("Delivery link copied!");
+                    }}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  {purchaseSummaryData.serials.map((serial, idx) => (
-                    <div key={serial} className="flex items-start gap-2 bg-gray-100 rounded px-2 py-2">
-                      <span className="font-mono text-sm text-purple-700 break-all whitespace-pre-wrap leading-relaxed flex-1">{serial}</span>
-                      <button
-                        type="button"
-                        className="ml-2 text-purple-600 hover:text-purple-800 flex-shrink-0 mt-1"
+              ) : (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-semibold text-gray-700">Log:</div>
+                    {purchaseSummaryData.serials.length > 1 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs"
                         onClick={() => {
-                          navigator.clipboard.writeText(serial);
-                          toast.success('Serial copied!');
+                          const allSerials = purchaseSummaryData.serials.join('\n');
+                          navigator.clipboard.writeText(allSerials);
+                          toast.success(`${purchaseSummaryData.serials.length} logs copied!`);
                         }}
-                        aria-label="Copy serial"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16h8M8 12h8m-8-4h8M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
-                      </button>
-                    </div>
-                  ))}
+                        <Copy className="h-3 w-3 mr-1" />
+                        Copy All Logs
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {purchaseSummaryData.serials.map((serial, idx) => (
+                      <div key={serial} className="flex items-start gap-2 bg-gray-100 rounded px-2 py-2">
+                        <span className="font-mono text-sm text-purple-700 break-all whitespace-pre-wrap leading-relaxed flex-1">{serial}</span>
+                        <button
+                          type="button"
+                          className="ml-2 text-purple-600 hover:text-purple-800 flex-shrink-0 mt-1"
+                          onClick={() => {
+                            navigator.clipboard.writeText(serial);
+                            toast.success('Serial copied!');
+                          }}
+                          aria-label="Copy serial"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16h8M8 12h8m-8-4h8M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
           <DialogFooter>
@@ -1097,17 +1144,15 @@ const Shop = () => {
                   <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Numbers</span>
                 </a>
 
-                <a
-                  href="https://viktohs-sms.com/signin"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => setShowWorkingPictures(true)}
                   className="flex flex-col items-center gap-2"
                 >
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900">
-                    <Zap className="h-5 w-5" />
+                    <ImageIcon className="h-5 w-5" />
                   </div>
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">SMM</span>
-                </a>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">working profile</span>
+                </button>
 
                 <button
                   onClick={() => setShowPurchaseHistory(true)}
@@ -1542,6 +1587,123 @@ const Shop = () => {
         </div>
       </div>
     </div>
+
+      {/* Mobile Working Pictures View */}
+      {showWorkingPictures && (
+        <div className="fixed inset-0 z-40 md:hidden bg-gray-50 dark:bg-black overflow-y-auto pb-24">
+          {/* Header */}
+          <div className="sticky top-0 z-10 bg-gray-50/95 dark:bg-black/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 px-4 py-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowWorkingPictures(false)}
+                className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-[#18181b] transition-colors"
+                aria-label="Go back"
+              >
+                <ChevronDown className="h-5 w-5 -rotate-90 text-gray-700 dark:text-gray-300" />
+              </button>
+              <div>
+                <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-100">Working Pictures</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Browse curated picture and video packs.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-4 py-5 space-y-5">
+            {/* Wallet balance card */}
+            <div className="rounded-2xl bg-purple-900 p-4 text-white shadow-lg">
+              <p className="text-xs text-purple-200 mb-1">Wallet balance</p>
+              <div className="text-2xl font-extrabold">
+                ₦{Math.max(0, user.balance || 0).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+
+            {/* Legal disclaimer */}
+            <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 p-3 flex gap-3">
+              <div className="text-amber-600 dark:text-amber-400 text-lg">⚠</div>
+              <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+                <span className="font-bold">Legal disclaimer:</span> These resources are strictly for educational and awareness purposes only.
+              </p>
+            </div>
+
+            {/* Search */}
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">Available Pictures</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Live filter through the catalogue.</p>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search by name..."
+                  value={workingPicturesSearch}
+                  onChange={(e) => setWorkingPicturesSearch(e.target.value)}
+                  className="pl-9 h-11 rounded-full bg-white dark:bg-[#09090b] border-gray-200 dark:border-gray-800"
+                />
+              </div>
+            </div>
+
+            {/* Products grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {products
+                .filter((p) => p.deliveryUrl)
+                .filter((p) => p.name.toLowerCase().includes(workingPicturesSearch.toLowerCase()) || p.description.toLowerCase().includes(workingPicturesSearch.toLowerCase()))
+                .map((product) => (
+                <div
+                  key={product.id}
+                  className="rounded-2xl bg-white dark:bg-black border border-gray-100 dark:border-gray-800 overflow-hidden shadow-sm"
+                >
+                  <div className="relative aspect-square">
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-2 right-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      ₦{product.price.toLocaleString()}
+                    </div>
+                    <button
+                      onClick={() => {
+                        // Open image preview in new tab
+                        window.open(product.image, "_blank");
+                      }}
+                      className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 text-white text-[10px] px-2 py-1 rounded-full"
+                    >
+                      <Search className="h-3 w-3" />
+                      Tap to zoom
+                    </button>
+                  </div>
+                  <div className="p-3">
+                    <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate">{product.name}</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{product.description}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="flex-1 rounded-lg bg-gray-100 dark:bg-[#09090b] py-1.5 text-center">
+                        <div className="text-xs font-bold text-gray-900 dark:text-gray-100">{product.photosCount || 0}</div>
+                        <div className="text-[10px] text-gray-500 dark:text-gray-400">Photos</div>
+                      </div>
+                      <div className="flex-1 rounded-lg bg-gray-100 dark:bg-[#09090b] py-1.5 text-center">
+                        <div className="text-xs font-bold text-gray-900 dark:text-gray-100">{product.videosCount || 0}</div>
+                        <div className="text-[10px] text-gray-500 dark:text-gray-400">Videos</div>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => handleBuyClick(product)}
+                      className="w-full mt-3 h-9 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-full"
+                    >
+                      Buy now
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {products.filter((p) => p.deliveryUrl).length === 0 && (
+              <div className="text-center py-10">
+                <ImageIcon className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-700 mb-3" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">No working pictures available yet.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Floating Help Support (bottom-right) */}
       <div className="fixed bottom-24 md:bottom-8 right-5 z-50">
         <a
@@ -1641,9 +1803,11 @@ const Shop = () => {
                   </div>
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">
-                  {(typeof selectedProduct.availableStock === "number"
-                    ? selectedProduct.availableStock
-                    : (selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length)} units available
+                  {selectedProduct.deliveryUrl
+                    ? "Digital download"
+                    : `${(typeof selectedProduct.availableStock === "number"
+                        ? selectedProduct.availableStock
+                        : (selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length)} units available`}
                 </div>
 
                 <div className="flex items-center justify-between pt-1 border-t border-gray-200 dark:border-gray-800">
@@ -1761,6 +1925,31 @@ const Shop = () => {
                           {item.description}
                         </p>
                         
+                        {/* Delivery Link */}
+                        {item.deliveryUrl && (
+                          <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+                            <p className="text-xs font-semibold text-purple-900 dark:text-purple-300 mb-1">
+                              Delivery Link:
+                            </p>
+                            <div className="flex items-start gap-2">
+                              <span className="text-xs font-mono text-purple-700 dark:text-purple-300 break-all flex-1">
+                                {item.deliveryUrl}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 hover:bg-purple-100 dark:hover:bg-purple-900 flex-shrink-0"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(item.deliveryUrl || "");
+                                  toast.success('Delivery link copied!');
+                                }}
+                              >
+                                <Copy className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Serial Numbers */}
                         {item.assignedSerials && item.assignedSerials.length > 0 && (
                           <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
@@ -2472,13 +2661,6 @@ const Shop = () => {
               <Zap className="mr-3 h-5 w-5" />
               {isCreatingQuickPay ? "Preparing Quick Pay..." : "Quick Pay"}
             </Button>
-            <Button onClick={() => {
-                setShowPaymentMethodDialog(false);
-                setShowManualFundsDialog(true);
-            }} variant="outline" className="w-full h-14 justify-start px-4 text-left font-semibold text-base border-2 hover:bg-gray-50 dark:hover:bg-[#18181b]">
-              <Banknote className="mr-3 h-5 w-5" />
-              Manual deposit unavailable!
-            </Button>
           </div>
           <DialogFooter>
              <Button variant="ghost" onClick={() => setShowPaymentMethodDialog(false)} className="w-full">Cancel</Button>
@@ -2538,16 +2720,14 @@ const Shop = () => {
             <span className="text-xs font-medium text-purple-600 dark:text-purple-400 transition-colors">Home</span>
           </button>
 
-          <a
-            href="https://viktohs-sms.com/signin"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => setShowWorkingPictures(true)}
             className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-all duration-300 group min-w-0 flex-1"
-            aria-label="SMM"
+            aria-label="Working profile"
           >
             <Zap className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">SMM</span>
-          </a>
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">working profile</span>
+          </button>
 
           <button
             onClick={() => setShowAddMoneyDialog(true)}
@@ -2572,7 +2752,7 @@ const Shop = () => {
                 </span>
               )}
             </div>
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">Cart</span>
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">Orders</span>
           </button>
 
           <button

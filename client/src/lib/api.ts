@@ -49,6 +49,9 @@ interface CatalogProduct {
   category: string;
   serialNumbers?: SerialNumber[];
   availableStock?: number;
+  deliveryUrl?: string;
+  photosCount?: number;
+  videosCount?: number;
   createdAt?: string; // Changed from Date to string
 }
 
@@ -65,6 +68,7 @@ export interface PurchaseHistory {
   category: string;
   quantity: number;
   assignedSerials: string[];
+  deliveryUrl?: string;
   // Dates come over the wire as ISO strings
   purchaseDate: string;
 }
@@ -173,7 +177,7 @@ export const purchaseHistoryAPI = {
     userId: string;
     productId: string;
     quantity: number;
-  }): Promise<{ success: boolean; newBalance: number; purchase: PurchaseHistory; assignedSerials: string[]; updatedProduct?: { id: string; availableStock: number } } > {
+  }): Promise<{ success: boolean; newBalance: number; purchase: PurchaseHistory; assignedSerials: string[]; deliveryUrl?: string; updatedProduct?: { id: string; availableStock: number } } > {
     return apiFetch('/api/purchase/complete', {
       method: 'POST',
       headers: {

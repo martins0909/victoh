@@ -89,6 +89,9 @@ export interface ICatalogProduct extends Document {
   category: string;
   serialNumbers?: ISerialNumber[];
   cachedAvailableStock?: number;
+  deliveryUrl?: string;
+  photosCount?: number;
+  videosCount?: number;
   createdAt: Date;
 }
 
@@ -104,6 +107,7 @@ export interface IPurchaseHistory extends Document {
   category: string;
   quantity: number;
   assignedSerials: string[];
+  deliveryUrl?: string;
   purchaseDate: Date;
 }
 
@@ -204,6 +208,9 @@ const CatalogProductSchema = new Schema<ICatalogProduct>({
   category: { type: String, required: true },
   serialNumbers: { type: [SerialNumberSchema], default: [] },
   cachedAvailableStock: { type: Number, default: 0 },
+  deliveryUrl: { type: String },
+  photosCount: { type: Number, default: 0 },
+  videosCount: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -223,6 +230,7 @@ const PurchaseHistorySchema = new Schema<IPurchaseHistory>({
   category: { type: String, required: true },
   quantity: { type: Number, required: true },
   assignedSerials: { type: [String], default: [] },
+  deliveryUrl: { type: String },
   purchaseDate: { type: Date, default: Date.now },
 });
 
