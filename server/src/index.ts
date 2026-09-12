@@ -8,7 +8,7 @@ import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import crypto from "crypto";
 import axios from "axios";
-import { User, Admin, Cart, Payment, Product, CatalogProduct, PurchaseHistory, CatalogCategory } from "./models";
+import { User, Admin, Cart, Payment, Product, CatalogProduct, PurchaseHistory, CatalogCategory, WorkingPicture } from "./models";
 import paymentsRouter from "./routes/payments";
 
 const app = express();
@@ -948,6 +948,128 @@ app.delete("/api/catalog-categories/:id", requireAdmin, async (req: Request, res
   }
 });
 
+// ======== WORKING PICTURES ENDPOINTS ========
+
+let activeWorkingPicturesFetch: Promise<any[]> | null = null;
+
+// Helper to serve working picture images
+app.get("/api/working-pictures/:id/image", async (req: Request, res: Response) => {
+  try {
+    const picture = await WorkingPicture.findOne({ id: req.params.id }, "image").lean();
+    if (!picture || !picture.image) return res.status(404).send("Not found");
+
+    const match = picture.image.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (match) {
+      const contentType = match[1];
+      const buffer = Buffer.from(match[2], 'base64');
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      return res.send(buffer);
+    }
+
+    if (picture.image.startsWith('http')) return res.redirect(picture.image);
+    res.setHeader("Content-Type", "text/plain");
+    res.send(picture.image);
+  } catch (err) {
+    res.status(500).send("Error serving image");
+  }
+});
+
+// Get all working pictures (public)
+app.get("/api/working-pictures", async (req: Request, res: Response) => {
+  try {
+    res.setHeader("Cache-Control", "public, max-age=30");
+    const cacheKey = "workingPictures:public:v1";
+    const cached = cacheGet<any[]>(cacheKey);
+    if (cached) return res.json(cached);
+
+    if (activeWorkingPicturesFetch) {
+      const pictures = await activeWorkingPicturesFetch;
+      return res.json(pictures);
+    }
+
+    activeWorkingPicturesFetch = (async () => {
+      const pictures = await WorkingPicture.find({}, "-image").sort({ createdAt: -1 }).lean().exec();
+      const mapped = pictures.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        image: `/api/working-pictures/${p.id}/image`,
+        deliveryUrl: p.deliveryUrl,
+        photosCount: p.photosCount || 0,
+        videosCount: p.videosCount || 0,
+        createdAt: p.createdAt,
+      }));
+      cacheSet(cacheKey, mapped, 60_000);
+      return mapped;
+    })();
+
+    const pictures = await activeWorkingPicturesFetch;
+    res.json(pictures);
+  } catch (err) {
+    console.error("Error fetching working pictures:", err);
+    res.status(500).json({ error: "Failed to fetch working pictures" });
+  } finally {
+    activeWorkingPicturesFetch = null;
+  }
+});
+
+// Create working picture (admin only)
+app.post("/api/working-pictures", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id, name, description, price, image, deliveryUrl, photosCount, videosCount } = req.body;
+    if (!id || !name || !description || !price || !image || !deliveryUrl) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    const picture = new WorkingPicture({
+      id,
+      name,
+      description,
+      price,
+      image,
+      deliveryUrl,
+      photosCount: photosCount || 0,
+      videosCount: videosCount || 0,
+    });
+    await picture.save();
+    cacheDel("workingPictures:public:v1");
+    res.json(picture);
+  } catch (err) {
+    console.error("Error creating working picture:", err);
+    res.status(500).json({ error: "Failed to create working picture" });
+  }
+});
+
+// Update working picture (admin only)
+app.put("/api/working-pictures/:id", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    const picture = await WorkingPicture.findOneAndUpdate({ id }, updates, { new: true });
+    if (!picture) return res.status(404).json({ error: "Working picture not found" });
+    cacheDel("workingPictures:public:v1");
+    res.json(picture);
+  } catch (err) {
+    console.error("Error updating working picture:", err);
+    res.status(500).json({ error: "Failed to update working picture" });
+  }
+});
+
+// Delete working picture (admin only)
+app.delete("/api/working-pictures/:id", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const picture = await WorkingPicture.findOneAndDelete({ id });
+    if (!picture) return res.status(404).json({ error: "Working picture not found" });
+    cacheDel("workingPictures:public:v1");
+    res.json({ message: "Working picture deleted" });
+  } catch (err) {
+    console.error("Error deleting working picture:", err);
+    res.status(500).json({ error: "Failed to delete working picture" });
+  }
+});
+
 // ======== PURCHASE HISTORY ENDPOINTS ========
 
 // Get purchase history for a user
@@ -955,7 +1077,12 @@ app.get("/api/purchase-history/:userId", async (req: Request, res: Response) => 
   try {
     const { userId } = req.params;
     const history = await PurchaseHistory.find({ userId }, "-image").sort({ purchaseDate: -1 }).lean();
-    const mapped = history.map(h => ({ ...h, image: `/api/catalog/${h.productId}/image` }));
+    const mapped = history.map(h => ({
+      ...h,
+      image: h.deliveryUrl
+        ? `/api/working-pictures/${h.productId}/image`
+        : `/api/catalog/${h.productId}/image`,
+    }));
     res.json(mapped);
   } catch (err) {
     console.error("Error fetching purchase history:", err);
@@ -1041,29 +1168,45 @@ app.post("/api/purchase/complete", async (req: Request, res: Response) => {
           throw Object.assign(new Error("User not found"), { statusCode: 404 });
         }
 
-        const catalogProduct = await findCatalogProduct(productId, session);
-        if (!catalogProduct) {
-          console.error("Catalog product not found:", productId);
-          throw Object.assign(new Error("Product not found"), { statusCode: 404 });
-        }
-
         const qty = Number(quantity);
         if (!Number.isFinite(qty) || qty <= 0) {
           throw Object.assign(new Error("Invalid quantity"), { statusCode: 400 });
         }
 
-        const totalPrice = (catalogProduct.price || 0) * qty;
+        // Try catalog product first, then working picture
+        let catalogProduct: any = await findCatalogProduct(productId, session);
+        let workingPicture: any = null;
+        let productType: "catalog" | "working-picture" = "catalog";
+
+        if (!catalogProduct) {
+          const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(productId);
+          if (isValidObjectId) {
+            workingPicture = await WorkingPicture.findById(productId).session(session).exec();
+          }
+          if (!workingPicture) {
+            workingPicture = await WorkingPicture.findOne({ id: productId }).session(session).exec();
+          }
+          if (workingPicture) productType = "working-picture";
+        }
+
+        if (!catalogProduct && !workingPicture) {
+          console.error("Product not found:", productId);
+          throw Object.assign(new Error("Product not found"), { statusCode: 404 });
+        }
+
+        const product = catalogProduct || workingPicture;
+        const totalPrice = (product.price || 0) * qty;
         if ((user.balance || 0) < totalPrice) {
           console.error("Insufficient balance:", { balance: user.balance, required: totalPrice });
           throw Object.assign(new Error("Insufficient balance"), { statusCode: 400 });
         }
 
-        const isDownloadProduct = !!catalogProduct.deliveryUrl;
+        const isDownloadProduct = productType === "working-picture" || !!catalogProduct?.deliveryUrl;
         let assignedSerials: string[] = [];
         let remainingAvailable = 0;
 
-        if (!isDownloadProduct) {
-          const serials = Array.isArray(catalogProduct.serialNumbers) ? catalogProduct.serialNumbers : [];
+        if (productType === "catalog") {
+          const serials = Array.isArray(product.serialNumbers) ? product.serialNumbers : [];
           const available = serials.filter((s: any) => !s.isUsed);
           if (available.length < qty) {
             throw Object.assign(new Error(`Only ${available.length} units available in stock.`), { statusCode: 400 });
@@ -1082,22 +1225,22 @@ app.post("/api/purchase/complete", async (req: Request, res: Response) => {
           }
 
           remainingAvailable = serials.filter((s: any) => !s.isUsed).length;
-          (catalogProduct as any).cachedAvailableStock = remainingAvailable;
-          await (catalogProduct as any).save({ session });
+          product.cachedAvailableStock = remainingAvailable;
+          await product.save({ session });
         }
 
         const purchase = new PurchaseHistory({
           userId,
           email: user.email,
-          productId: catalogProduct.id,
-          name: catalogProduct.name,
-          description: catalogProduct.description,
-          price: catalogProduct.price,
-          image: catalogProduct.image,
-          category: catalogProduct.category,
+          productId: product.id,
+          name: product.name,
+          description: product.description,
+          price: product.price,
+          image: product.image,
+          category: productType === "working-picture" ? "Working Pictures" : product.category,
           quantity: qty,
           assignedSerials,
-          deliveryUrl: catalogProduct.deliveryUrl || undefined,
+          deliveryUrl: productType === "working-picture" ? product.deliveryUrl : (product.deliveryUrl || undefined),
         });
         await purchase.save({ session } as any);
 
@@ -1112,9 +1255,9 @@ app.post("/api/purchase/complete", async (req: Request, res: Response) => {
           newBalance: updatedUser?.balance || 0,
           purchase,
           assignedSerials,
-          deliveryUrl: catalogProduct.deliveryUrl || null,
+          deliveryUrl: productType === "working-picture" ? product.deliveryUrl : (product.deliveryUrl || null),
           updatedProduct: {
-            id: catalogProduct.id,
+            id: product.id,
             availableStock: isDownloadProduct ? 9999 : remainingAvailable,
           },
         };
@@ -1125,6 +1268,7 @@ app.post("/api/purchase/complete", async (req: Request, res: Response) => {
 
     // Invalidate public cache so stock updates reflect quickly
     cacheDel("catalog:public:v1");
+    cacheDel("workingPictures:public:v1");
 
     if (!responsePayload) {
       return res.status(500).json({ error: "Failed to complete purchase" });
@@ -1150,7 +1294,12 @@ app.get("/api/purchase-history", requireAdmin, async (req: Request, res: Respons
       filter.email = { $regex: email.trim(), $options: "i" };
     }
     const items = await PurchaseHistory.find(filter, "-image").sort({ purchaseDate: -1 }).allowDiskUse(true).lean();
-    const mapped = items.map(h => ({ ...h, image: `/api/catalog/${h.productId}/image` }));
+    const mapped = items.map(h => ({
+      ...h,
+      image: h.deliveryUrl
+        ? `/api/working-pictures/${h.productId}/image`
+        : `/api/catalog/${h.productId}/image`,
+    }));
     res.json(mapped);
   } catch (err) {
     console.error("Error fetching all purchase history:", err);

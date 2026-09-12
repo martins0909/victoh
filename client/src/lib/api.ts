@@ -191,13 +191,68 @@ export const purchaseHistoryAPI = {
   // delete/restore removed; users cannot delete purchase history entries
 };
 
+// ======== WORKING PICTURES API ========
+
+export interface WorkingPicture {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  deliveryUrl: string;
+  photosCount: number;
+  videosCount: number;
+  createdAt?: string;
+}
+
+export const workingPicturesAPI = {
+  async getAll(): Promise<WorkingPicture[]> {
+    const res = await apiFetch('/api/working-pictures');
+    return (res as WorkingPicture[]).map(p => ({
+      ...p,
+      image: p.image && p.image.startsWith("/api/") ? `${API_BASE}${p.image}` : p.image
+    }));
+  },
+
+  async create(data: Omit<WorkingPicture, 'createdAt'>): Promise<WorkingPicture> {
+    const token = getAdminToken();
+    return apiFetch('/api/working-pictures', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
+      body: JSON.stringify(data),
+    });
+  },
+
+  async update(id: string, data: Partial<Omit<WorkingPicture, 'id' | 'createdAt'>>): Promise<WorkingPicture> {
+    const token = getAdminToken();
+    return apiFetch(`/api/working-pictures/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
+      body: JSON.stringify(data),
+    });
+  },
+
+  async delete(id: string): Promise<void> {
+    const token = getAdminToken();
+    return apiFetch(`/api/working-pictures/${id}`, {
+      method: 'DELETE',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+    });
+  },
+};
+
 // ======== CATALOG CATEGORIES API ========
 
 export interface CatalogCategoryDTO {
   id: string;
   name: string;
   icon?: string;
-  createdAt?: string;
 }
 
 export const catalogCategoriesAPI = {

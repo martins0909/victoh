@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { apiFetch, catalogAPI, purchaseHistoryAPI, catalogCategoriesAPI, warmBackend } from "@/lib/api";
+import { apiFetch, catalogAPI, purchaseHistoryAPI, catalogCategoriesAPI, workingPicturesAPI, warmBackend } from "@/lib/api";
 import { Banknote, ChevronDown, History, Copy, Home, Menu, LogIn, FileText, Headphones, MessageCircle, Wallet, Eye, EyeOff, CreditCard, Zap, Repeat, ShoppingBag, Smartphone, User, Lock, Bell, UserCircle, Moon, Sun, Search, ImageIcon } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import bannerImg from "@/assets/ban.jpg";
@@ -123,6 +123,7 @@ const Shop = () => {
   };
   const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
   const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [workingPictures, setWorkingPictures] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   // Categories from API
   const [categories, setCategories] = useState<string[]>(["All"]);
@@ -247,16 +248,18 @@ const Shop = () => {
     try {
       if (!opts.silent) setLoadingProducts(true);
 
-      // Fetch products and categories in parallel with a softer timeout
+      // Fetch products, categories, and working pictures in parallel with a softer timeout
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 30000); // Increased to 30 seconds
-      const [catalogProducts, cats] = await Promise.all([
+      const [catalogProducts, cats, wpList] = await Promise.all([
         catalogAPI.getAll({ signal: controller.signal }),
         catalogCategoriesAPI.getAll({ signal: controller.signal }),
+        workingPicturesAPI.getAll(),
       ]);
       clearTimeout(timer);
 
       setProducts(catalogProducts);
+      setWorkingPictures(wpList.map((wp) => ({ ...wp, category: "Working Pictures" })));
       setCategories(["All", ...cats.map(c => c.name)]);
       setCategoryIcons(Object.fromEntries(cats.map(c => [c.name, c.icon || ""])));
 
@@ -1642,8 +1645,7 @@ const Shop = () => {
 
             {/* Products grid */}
             <div className="grid grid-cols-2 gap-3">
-              {products
-                .filter((p) => p.deliveryUrl)
+              {workingPictures
                 .filter((p) => p.name.toLowerCase().includes(workingPicturesSearch.toLowerCase()) || p.description.toLowerCase().includes(workingPicturesSearch.toLowerCase()))
                 .map((product) => (
                 <div
@@ -1694,7 +1696,7 @@ const Shop = () => {
               ))}
             </div>
 
-            {products.filter((p) => p.deliveryUrl).length === 0 && (
+            {workingPictures.length === 0 && (
               <div className="text-center py-10">
                 <ImageIcon className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-700 mb-3" />
                 <p className="text-sm text-gray-500 dark:text-gray-400">No working pictures available yet.</p>
@@ -2712,7 +2714,7 @@ const Shop = () => {
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-black/95 backdrop-blur-xl border-t-2 border-white/60 dark:border-gray-800 shadow-2xl">
         <div className="flex items-end justify-around py-2 px-2">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/shop")}
             className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-all duration-300 group min-w-0 flex-1"
             aria-label="Home"
           >

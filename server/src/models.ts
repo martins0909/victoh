@@ -119,6 +119,19 @@ export interface ICatalogCategory extends Document {
   createdAt: Date;
 }
 
+// Working Picture interface (separate from catalog products)
+export interface IWorkingPicture extends Document {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  deliveryUrl: string;
+  photosCount: number;
+  videosCount: number;
+  createdAt: Date;
+}
+
 // Define ProductItemSchema first since it's used in CartItemSchema
 const ProductItemSchema = new Schema<IProductItem>({
   username: { type: String, required: true },
@@ -253,3 +266,18 @@ const CatalogCategorySchema = new Schema<ICatalogCategory>({
 });
 
 export const CatalogCategory = mongoose.model<ICatalogCategory>("CatalogCategory", CatalogCategorySchema);
+
+// Working Picture Schema and Model
+const WorkingPictureSchema = new Schema<IWorkingPicture>({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  description: { type: String, required: true },
+  price: { type: Number, required: true },
+  image: { type: String, required: true },
+  deliveryUrl: { type: String, required: true },
+  photosCount: { type: Number, default: 0 },
+  videosCount: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now },
+});
+
+export const WorkingPicture = mongoose.model<IWorkingPicture>("WorkingPicture", WorkingPictureSchema);
