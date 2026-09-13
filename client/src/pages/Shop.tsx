@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +62,7 @@ const PREFETCH_TTL_MS = 5 * 60 * 1000;
 
 const Shop = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const isFirstMount = useRef(true);
   const [user, setUser] = useState<User | null>(null);
   const [addFundsAmount, setAddFundsAmount] = useState("");
@@ -331,15 +332,18 @@ const Shop = () => {
     setIsPurchasing(true);
 
     try {
-      const availableStock = typeof selectedProduct.availableStock === "number"
-        ? selectedProduct.availableStock
-        : (selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length;
-      if (availableStock < purchaseQuantity) {
-        toast.error(`Only ${availableStock} units available in stock.`);
-        return;
+      // Only enforce stock limits for regular catalog products (not download links)
+      if (!selectedProduct.deliveryUrl) {
+        const availableStock = typeof selectedProduct.availableStock === "number"
+          ? selectedProduct.availableStock
+          : (selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length;
+        if (availableStock < purchaseQuantity) {
+          toast.error(`Only ${availableStock} units available in stock.`);
+          return;
+        }
       }
 
-      // Complete purchase via backend (deducts balance, assigns serials, creates history)
+      // Complete purchase via backend (deducts balance, assigns serials or delivery URL, creates history)
       const result = await purchaseHistoryAPI.completePurchase({
         userId: user.id,
         productId: selectedProduct.id,
@@ -1791,12 +1795,16 @@ const Shop = () => {
                       size="sm"
                       className="h-8 w-8 p-0"
                       onClick={() => {
-                        const maxStock = typeof selectedProduct.availableStock === "number"
-                          ? selectedProduct.availableStock
-                          : (selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length;
-                        setPurchaseQuantity(Math.min(maxStock, purchaseQuantity + 1));
+                        if (selectedProduct.deliveryUrl) {
+                          setPurchaseQuantity(purchaseQuantity + 1);
+                        } else {
+                          const maxStock = typeof selectedProduct.availableStock === "number"
+                            ? selectedProduct.availableStock
+                            : (selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length;
+                          setPurchaseQuantity(Math.min(maxStock, purchaseQuantity + 1));
+                        }
                       }}
-                      disabled={purchaseQuantity >= (typeof selectedProduct.availableStock === "number"
+                      disabled={!selectedProduct.deliveryUrl && purchaseQuantity >= (typeof selectedProduct.availableStock === "number"
                         ? selectedProduct.availableStock
                         : (selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length)}
                     >
@@ -1806,7 +1814,7 @@ const Shop = () => {
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">
                   {selectedProduct.deliveryUrl
-                    ? "Digital download"
+                    ? "Unlimited downloads"
                     : `${(typeof selectedProduct.availableStock === "number"
                         ? selectedProduct.availableStock
                         : (selectedProduct.serialNumbers || []).filter(s => !s.isUsed).length)} units available`}
@@ -2714,7 +2722,14 @@ const Shop = () => {
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-black/95 backdrop-blur-xl border-t-2 border-white/60 dark:border-gray-800 shadow-2xl">
         <div className="flex items-end justify-around py-2 px-2">
           <button
-            onClick={() => navigate("/shop")}
+            onClick={() => {
+              const path = location.pathname.replace(/\/$/, "");
+              if (path === "/shop") {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else {
+                navigate("/shop");
+              }
+            }}
             className="flex flex-col items-center gap-1 p-2 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-all duration-300 group min-w-0 flex-1"
             aria-label="Home"
           >
