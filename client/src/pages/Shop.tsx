@@ -1600,18 +1600,19 @@ const Shop = () => {
         <div className="fixed inset-0 z-40 md:hidden bg-gray-50 dark:bg-black overflow-y-auto pb-24">
           {/* Header */}
           <div className="sticky top-0 z-10 bg-gray-50/95 dark:bg-black/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 px-4 py-4">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowWorkingPictures(false)}
-                className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-[#18181b] transition-colors"
-                aria-label="Go back"
-              >
-                <ChevronDown className="h-5 w-5 -rotate-90 text-gray-700 dark:text-gray-300" />
-              </button>
+            <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-extrabold text-gray-900 dark:text-gray-100">Working Pictures</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Browse curated picture and video packs.</p>
               </div>
+              <button
+                onClick={() => setShowWorkingPictures(false)}
+                className="flex items-center gap-1.5 rounded-full bg-gray-100 dark:bg-[#18181b] hover:bg-gray-200 dark:hover:bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 transition-colors"
+                aria-label="Close working pictures"
+              >
+                <X className="h-4 w-4" />
+                Close
+              </button>
             </div>
           </div>
 
