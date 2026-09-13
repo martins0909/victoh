@@ -2725,6 +2725,9 @@ const Shop = () => {
           <button
             onClick={() => {
               const path = location.pathname.replace(/\/$/, "");
+              if (showWorkingPictures) {
+                setShowWorkingPictures(false);
+              }
               if (path === "/shop") {
                 window.scrollTo({ top: 0, behavior: "smooth" });
               } else {
