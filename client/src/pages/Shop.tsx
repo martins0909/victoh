@@ -1714,7 +1714,7 @@ const Shop = () => {
       {/* Floating Help Support (bottom-right) */}
       <div className="fixed bottom-24 md:bottom-8 right-5 z-50">
         <a
-          href="https://t.me/+0v09JFhl1sZjYTlk"
+          href="https://t.me/+2348133218597"
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-col items-center gap-1 group"
