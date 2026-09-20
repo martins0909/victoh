@@ -882,7 +882,19 @@ app.delete("/api/catalog/:id", requireAdmin, async (req: Request, res: Response)
 
 // ======== CATALOG CATEGORY ENDPOINTS ========
 
-// Get all categories
+// Lightweight category shape returned by the public list endpoint.
+// The full base64 icon is served separately via /api/catalog-categories/:id/icon
+// to avoid multi-megabyte JSON responses.
+function mapCategoryToPublic(c: any) {
+  return {
+    id: c.id,
+    name: c.name,
+    createdAt: c.createdAt,
+    iconUrl: c.icon ? `/api/catalog-categories/${c.id}/icon` : undefined,
+  };
+}
+
+// Get all categories (public, icon excluded)
 app.get("/api/catalog-categories", async (req: Request, res: Response) => {
   try {
     res.setHeader("Cache-Control", "public, max-age=120");
@@ -890,12 +902,51 @@ app.get("/api/catalog-categories", async (req: Request, res: Response) => {
     const cached = cacheGet<any[]>(cacheKey);
     if (cached) return res.json(cached);
 
-    const cats = await CatalogCategory.find().sort({ name: 1 }).lean();
-    cacheSet(cacheKey, cats, 120_000);
-    res.json(cats);
+    const cats = await CatalogCategory.find({}, "id name createdAt icon").sort({ name: 1 }).lean();
+    const mapped = cats.map(mapCategoryToPublic);
+    cacheSet(cacheKey, mapped, 120_000);
+    res.json(mapped);
   } catch (err) {
     console.error("Error fetching categories:", err);
     res.status(500).json({ error: "Failed to fetch categories" });
+  }
+});
+
+// Serve category icon (public). Supports base64 data URLs and external URLs.
+app.get("/api/catalog-categories/:id/icon", async (req: Request, res: Response) => {
+  try {
+    const picture = await CatalogCategory.findOne({ id: req.params.id }, "icon").lean();
+    if (!picture || !picture.icon) return res.status(404).send("Icon not found");
+
+    const icon = picture.icon as string;
+    const match = icon.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (match) {
+      const contentType = match[1];
+      const buffer = Buffer.from(match[2], "base64");
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      return res.send(buffer);
+    }
+
+    if (icon.startsWith("http")) return res.redirect(icon);
+
+    res.setHeader("Content-Type", "text/plain");
+    res.send(icon);
+  } catch (err) {
+    console.error("Error serving category icon:", err);
+    res.status(500).send("Error serving icon");
+  }
+});
+
+// Get a single category (admin only, includes full icon for editing)
+app.get("/api/catalog-categories/:id", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const category = await CatalogCategory.findOne({ id: req.params.id }).lean();
+    if (!category) return res.status(404).json({ error: "Category not found" });
+    res.json(category);
+  } catch (err) {
+    console.error("Error fetching category:", err);
+    res.status(500).json({ error: "Failed to fetch category" });
   }
 });
 
@@ -907,7 +958,7 @@ app.post("/api/catalog-categories", requireAdmin, async (req: Request, res: Resp
     const cat = new CatalogCategory({ id: id || crypto.randomUUID(), name, icon });
     await cat.save();
     cacheDel("catalogCategories:public:v1");
-    res.json(cat);
+    res.json(mapCategoryToPublic(cat));
   } catch (err) {
     console.error("Error creating category:", err);
     res.status(500).json({ error: "Failed to create category" });
@@ -927,7 +978,7 @@ app.put("/api/catalog-categories/:id", requireAdmin, async (req: Request, res: R
     const updated = await CatalogCategory.findOneAndUpdate({ id }, updateData, { new: true });
     if (!updated) return res.status(404).json({ error: "Category not found" });
     cacheDel("catalogCategories:public:v1");
-    res.json(updated);
+    res.json(mapCategoryToPublic(updated));
   } catch (err) {
     console.error("Error updating category:", err);
     res.status(500).json({ error: "Failed to update category" });

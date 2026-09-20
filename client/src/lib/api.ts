@@ -252,12 +252,20 @@ export const workingPicturesAPI = {
 export interface CatalogCategoryDTO {
   id: string;
   name: string;
-  icon?: string;
+  icon?: string;       // base64 data URL, only present on admin create/update/getById
+  iconUrl?: string;    // public image URL, present on list responses
+  createdAt?: string;
 }
 
 export const catalogCategoriesAPI = {
   async getAll(opts: { signal?: AbortSignal } = {}): Promise<CatalogCategoryDTO[]> {
     return apiFetch('/api/catalog-categories', { signal: opts.signal });
+  },
+  async getById(id: string): Promise<CatalogCategoryDTO> {
+    const token = localStorage.getItem('admin_token');
+    return apiFetch(`/api/catalog-categories/${id}`, {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+    });
   },
   async create(name: string, icon?: string): Promise<CatalogCategoryDTO> {
     const token = localStorage.getItem('admin_token');

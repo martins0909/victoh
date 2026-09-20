@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { catalogAPI, catalogCategoriesAPI } from "@/lib/api";
+import { API_BASE, catalogAPI, catalogCategoriesAPI } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -98,8 +98,8 @@ export default function CategoryBanners() {
                 <div id={`category-${cat.name}`} className="bg-white dark:bg-[#09090b] rounded-none md:rounded-2xl shadow-xl overflow-hidden border-y md:border border-gray-100 dark:border-gray-700">
                   <div className="bg-purple-600 dark:bg-purple-700 relative overflow-hidden flex flex-col md:flex-row md:items-end justify-between px-2 md:px-6 pt-2 gap-1 md:gap-0">
                     <div className="flex items-center gap-2 md:gap-3 flex-1 overflow-hidden min-w-0 pr-2 pb-2">
-                      {cat.icon && (
-                        <img src={cat.icon} alt={cat.name} className="w-8 h-8 md:w-10 md:h-10 object-contain rounded bg-white/20 p-1 shrink-0" />
+                      {cat.iconUrl && (
+                        <img src={`${API_BASE}${cat.iconUrl}`} alt={cat.name} className="w-8 h-8 md:w-10 md:h-10 object-contain rounded bg-white/20 p-1 shrink-0" />
                       )}
                       <h3 className="text-sm md:text-xl font-bold text-white tracking-wide truncate">
                         {cat.name}

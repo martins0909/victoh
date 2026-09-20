@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { catalogAPI, catalogCategoriesAPI } from "@/lib/api";
+import { API_BASE, catalogAPI, catalogCategoriesAPI } from "@/lib/api";
 
 interface SerialNumber {
   id: string;
@@ -28,7 +28,8 @@ interface SerialNumber {
 interface CatalogCategory {
   id: string;
   name: string;
-  icon?: string;
+  icon?: string;     // base64 data URL (present after create/update/getById)
+  iconUrl?: string;  // public image URL served by /api/catalog-categories/:id/icon
   createdAt: string;
 }
 
@@ -221,7 +222,12 @@ export default function AdminCatalog() {
     try {
       const list = await catalogCategoriesAPI.getAll();
       if (list.length > 0) {
-        setCategories(list.map(c => ({ id: c.id, name: c.name, icon: c.icon, createdAt: c.createdAt || new Date().toISOString() })));
+        setCategories(list.map(c => ({
+          id: c.id,
+          name: c.name,
+          iconUrl: c.iconUrl,
+          createdAt: c.createdAt || new Date().toISOString(),
+        })));
       }
     } catch (e) {
       // fall back silently; defaults remain
@@ -261,11 +267,21 @@ export default function AdminCatalog() {
     reader.readAsDataURL(file);
   };
 
-  const openEditCategory = (cat: CatalogCategory) => {
+  const openEditCategory = async (cat: CatalogCategory) => {
     setEditingCategory(cat);
     setEditCatName(cat.name);
-    setEditCatIcon(cat.icon || "");
+    setEditCatIcon("");
     setEditCatDialogOpen(true);
+    setUploadingEditCatIcon(true);
+    try {
+      const full = await catalogCategoriesAPI.getById(cat.id);
+      setEditCatIcon(full.icon || "");
+    } catch (e) {
+      console.error("Failed to load category icon", e);
+      toast.error("Failed to load category icon for editing");
+    } finally {
+      setUploadingEditCatIcon(false);
+    }
   };
 
   const updateCategory = async () => {
@@ -275,7 +291,12 @@ export default function AdminCatalog() {
     
     try {
       const updated = await catalogCategoriesAPI.update(editingCategory.id, { name, icon: editCatIcon });
-      setCategories(prev => prev.map(c => c.id === editingCategory.id ? { ...c, name: updated.name, icon: updated.icon } : c));
+      setCategories(prev => prev.map(c => c.id === editingCategory.id ? {
+        ...c,
+        name: updated.name,
+        iconUrl: updated.iconUrl,
+        icon: editCatIcon || c.icon,
+      } : c));
       setEditCatDialogOpen(false);
       setEditingCategory(null);
       toast.success("Category updated");
@@ -325,7 +346,13 @@ export default function AdminCatalog() {
     if (categories.some(c => c.name.toLowerCase() === name.toLowerCase())) { toast.error("Category already exists"); return; }
     try {
       const created = await catalogCategoriesAPI.create(name, newCategoryIcon);
-      const cat: CatalogCategory = { id: created.id, name: created.name, icon: created.icon, createdAt: created.createdAt || new Date().toISOString() };
+      const cat: CatalogCategory = {
+        id: created.id,
+        name: created.name,
+        iconUrl: created.iconUrl,
+        icon: newCategoryIcon || undefined,
+        createdAt: created.createdAt || new Date().toISOString(),
+      };
       setCategories(prev => [...prev, cat]);
       setNewCategoryName("");
       setNewCategoryIcon("");
@@ -757,7 +784,7 @@ export default function AdminCatalog() {
                 {categories.map(cat => (
                   <div key={cat.id} className="group relative">
                     <Badge className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-500 text-white shadow cursor-default flex items-center gap-2">
-                      {cat.icon && <img src={cat.icon} alt="" className="w-4 h-4 object-contain bg-white rounded-sm" />}
+                      {cat.iconUrl && <img src={`${API_BASE}${cat.iconUrl}`} alt="" className="w-4 h-4 object-contain bg-white rounded-sm" />}
                       {cat.name}
                       <div className="flex items-center gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button

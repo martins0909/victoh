@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { apiFetch, catalogAPI, purchaseHistoryAPI, catalogCategoriesAPI, workingPicturesAPI, warmBackend } from "@/lib/api";
+import { API_BASE, apiFetch, catalogAPI, purchaseHistoryAPI, catalogCategoriesAPI, workingPicturesAPI, warmBackend } from "@/lib/api";
 import { Banknote, ChevronDown, History, Copy, Home, Menu, LogIn, FileText, Headphones, MessageCircle, Wallet, Eye, EyeOff, CreditCard, Zap, Repeat, ShoppingBag, Smartphone, User, Lock, Bell, UserCircle, Moon, Sun, Search, ImageIcon } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import bannerImg from "@/assets/ban.jpg";
@@ -182,8 +182,8 @@ const Shop = () => {
       const now = Date.now();
       const cachedProds = sessionStorage.getItem("prefetch_products");
       const cachedProdsAt = Number(sessionStorage.getItem("prefetch_products_at") || "0");
-      const cachedCats = sessionStorage.getItem("prefetch_categories");
-      const cachedCatsAt = Number(sessionStorage.getItem("prefetch_categories_at") || "0");
+      const cachedCats = sessionStorage.getItem("prefetch_categories_v2");
+      const cachedCatsAt = Number(sessionStorage.getItem("prefetch_categories_v2_at") || "0");
 
       if (cachedProds && cachedProdsAt > 0 && (now - cachedProdsAt) < PREFETCH_TTL_MS) {
         const prods = JSON.parse(cachedProds) as Product[];
@@ -199,6 +199,9 @@ const Shop = () => {
         const cats = JSON.parse(cachedCats) as Array<{ name: string }>;
         setCategories(["All", ...cats.map(c => c.name)]);
       } else {
+        sessionStorage.removeItem("prefetch_categories_v2");
+        sessionStorage.removeItem("prefetch_categories_v2_at");
+        // Clear legacy cache shape that stored full base64 icons
         sessionStorage.removeItem("prefetch_categories");
         sessionStorage.removeItem("prefetch_categories_at");
       }
@@ -262,14 +265,16 @@ const Shop = () => {
       setProducts(catalogProducts);
       setWorkingPictures(wpList.map((wp) => ({ ...wp, category: "Working Pictures" })));
       setCategories(["All", ...cats.map(c => c.name)]);
-      setCategoryIcons(Object.fromEntries(cats.map(c => [c.name, c.icon || ""])));
+      setCategoryIcons(Object.fromEntries(
+        cats.map(c => [c.name, c.iconUrl ? `${API_BASE}${c.iconUrl}` : ""])
+      ));
 
       // Refresh prefetch cache for faster future navigations
       try {
         sessionStorage.setItem("prefetch_products", JSON.stringify(catalogProducts));
         sessionStorage.setItem("prefetch_products_at", String(Date.now()));
-        sessionStorage.setItem("prefetch_categories", JSON.stringify(cats));
-        sessionStorage.setItem("prefetch_categories_at", String(Date.now()));
+        sessionStorage.setItem("prefetch_categories_v2", JSON.stringify(cats));
+        sessionStorage.setItem("prefetch_categories_v2_at", String(Date.now()));
       } catch {
         // ignore cache write failures
       }
