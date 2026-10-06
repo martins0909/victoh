@@ -822,7 +822,7 @@ const Shop = () => {
             
             <div className="w-full flex justify-center py-2">
               <Button 
-                onClick={() => window.open("https://t.me/+0v09JFhl1sZjYTlk", "_blank")}
+                onClick={() => window.open("https://t.me/+2347043768862", "_blank")}
                 className="w-full sm:w-3/4 flex items-center justify-center gap-2 bg-[#0088cc] hover:bg-[#0077b3] text-white"
               >
                 <Send className="w-4 h-4" />
@@ -834,7 +834,7 @@ const Shop = () => {
               <Button 
                 variant="outline"
                 onClick={() => {
-                  navigator.clipboard.writeText("https://t.me/+0v09JFhl1sZjYTlk");
+                  navigator.clipboard.writeText("https://t.me/+2347043768862");
                   toast.success("Link copied!");
                 }}
                 className="w-full sm:w-3/4 flex items-center justify-center gap-2"
@@ -1569,7 +1569,7 @@ const Shop = () => {
                   </button>
                   
                   <button
-                    onClick={() => window.open('https://t.me/+0v09JFhl1sZjYTlk', '_blank')}
+                    onClick={() => window.open('https://t.me/+2347043768862', '_blank')}
                     className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#18181b] rounded-lg transition-colors"
                   >
                     <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
@@ -1719,7 +1719,7 @@ const Shop = () => {
       {/* Floating Help Support (bottom-right) */}
       <div className="fixed bottom-24 md:bottom-8 right-5 z-50">
         <a
-          href="https://t.me/+2348133218597"
+          href="https://t.me/+2347043768862"
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-col items-center gap-1 group"
@@ -2285,7 +2285,7 @@ const Shop = () => {
                   
                   <button
                     onClick={() => {
-                      window.open('https://t.me/+0v09JFhl1sZjYTlk', '_blank');
+                      window.open('https://t.me/+2347043768862', '_blank');
                       setShowMenuDrawer(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors rounded-lg"
@@ -2427,7 +2427,7 @@ const Shop = () => {
 
       {/* <div className="fixed bottom-8 right-6 z-50">
         <a
-          href="https://t.me/+0v09JFhl1sZjYTlk"
+          href="https://t.me/+2347043768862"
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-col items-center gap-1 group"
