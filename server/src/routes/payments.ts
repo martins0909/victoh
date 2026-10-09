@@ -8,7 +8,7 @@ const router = express.Router();
 
 // Validate Ercaspay configuration
 const ECRS_AUTH_KEY = (process.env.ECRS_SECRET_KEY || process.env.ECRS_API_KEY || '').trim();
-const ECRS_API_BASE = process.env.ECRS_API_BASE || 'https://api.ercaspay.com';
+const ECRS_API_BASE = process.env.ECRS_API_BASE || 'https://api.phoenix-wallet.ercaspay.com/api/v1';
 if (!ECRS_AUTH_KEY) {
   console.error('FATAL: Ercaspay key not set. Set ECRS_SECRET_KEY (preferred) or ECRS_API_KEY.');
 }
@@ -275,7 +275,7 @@ router.post('/ercas/initiate', async (req, res) => {
     let response;
     try {
         const axiosRes = await axios.post(
-            `${ECRS_API_BASE}/api/v1/payment/initiate`,
+            `${ECRS_API_BASE}/payment/initiate`,
             transactionData,
             {
                 headers: {
