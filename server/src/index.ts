@@ -59,6 +59,31 @@ const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET || "";
 const RESEND_API_KEY = (process.env.RESEND_API_KEY || "").trim();
 const RESEND_FROM = (process.env.RESEND_FROM || "").trim();
 
+const PURCHASE_HISTORY_RETENTION_MONTHS = 5;
+const PURCHASE_HISTORY_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+function getPurchaseHistoryCutoff(now = new Date()): Date {
+  const cutoff = new Date(now);
+  const dayOfMonth = cutoff.getDate();
+  cutoff.setDate(1);
+  cutoff.setMonth(cutoff.getMonth() - PURCHASE_HISTORY_RETENTION_MONTHS);
+  const lastDayOfTargetMonth = new Date(cutoff.getFullYear(), cutoff.getMonth() + 1, 0).getDate();
+  cutoff.setDate(Math.min(dayOfMonth, lastDayOfTargetMonth));
+  return cutoff;
+}
+
+async function purgeExpiredPurchaseHistory(): Promise<void> {
+  try {
+    const cutoff = getPurchaseHistoryCutoff();
+    const result = await PurchaseHistory.deleteMany({ purchaseDate: { $lt: cutoff } });
+    if (result.deletedCount > 0) {
+      console.log(`Deleted ${result.deletedCount} purchase history records older than five months`);
+    }
+  } catch (err) {
+    console.error("Purchase history retention cleanup failed:", err);
+  }
+}
+
 function sha256Hex(input: string): string {
   return crypto.createHash("sha256").update(input).digest("hex");
 }
@@ -201,6 +226,11 @@ async function start() {
     console.log("Connecting to MongoDB...");
     await mongoose.connect(MONGODB_URL);
     console.log("MongoDB connected successfully");
+
+    await purgeExpiredPurchaseHistory();
+    setInterval(() => {
+      void purgeExpiredPurchaseHistory();
+    }, PURCHASE_HISTORY_CLEANUP_INTERVAL_MS);
     
     // Seed default categories if none exist
     const categoryCount = await CatalogCategory.countDocuments();
