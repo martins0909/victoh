@@ -2673,10 +2673,6 @@ const Shop = () => {
               <Zap className="mr-3 h-5 w-5" />
               {isCreatingQuickPay ? "Preparing Quick Pay..." : "Quick Pay"}
             </Button>
-            <Button onClick={() => initiateErcasPayment()} className="w-full h-14 justify-start px-4 text-left font-semibold text-base bg-purple-600 hover:bg-purple-700 shadow-md">
-              <CreditCard className="mr-3 h-5 w-5" />
-              Instant payment (ercas)
-            </Button>
           </div>
           <DialogFooter>
              <Button variant="ghost" onClick={() => setShowPaymentMethodDialog(false)} className="w-full">Cancel</Button>
