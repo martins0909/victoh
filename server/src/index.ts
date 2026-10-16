@@ -563,8 +563,42 @@ app.post("/api/users/:id/adjust-balance", requireAdmin, async (req: Request, res
 
 // Payments
 app.get("/api/payments", requireAdmin, async (req: Request, res: Response) => {
-  const payments = await Payment.find().populate("user").lean();
-  res.json(payments);
+  try {
+    const pageParam = Number(req.query.page ?? 1);
+    if (!Number.isInteger(pageParam) || pageParam < 1) {
+      return res.status(400).json({ error: "Page must be a positive integer" });
+    }
+
+    const pageSize = 15;
+    const emailSearch = typeof req.query.search === "string" ? req.query.search.trim() : "";
+    let filter: Record<string, unknown> = {};
+    if (emailSearch) {
+      const escapedSearch = emailSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const matchingUsers = await User.find({ email: { $regex: escapedSearch, $options: "i" } })
+        .select("_id")
+        .lean();
+      filter = {
+        $or: [
+          { email: { $regex: escapedSearch, $options: "i" } },
+          { user: { $in: matchingUsers.map(user => user._id) } },
+        ],
+      };
+    }
+
+    const totalPayments = await Payment.countDocuments(filter);
+    const totalPages = Math.ceil(totalPayments / pageSize);
+    const page = totalPages > 0 ? Math.min(pageParam, totalPages) : 1;
+    const payments = await Payment.find(filter)
+      .populate("user", "email")
+      .sort({ createdAt: -1, _id: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean();
+    res.json({ payments, totalPayments, page, totalPages, pageSize });
+  } catch (err) {
+    console.error("Error fetching payments:", err);
+    res.status(500).json({ error: "Failed to fetch payments" });
+  }
 });
 
 // Get payments for a specific user
@@ -1367,21 +1401,32 @@ app.post("/api/purchase/complete", async (req: Request, res: Response) => {
 // Get all purchase history (admin only) - shows ALL purchases including user-deleted for business records
 app.get("/api/purchase-history", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { email } = req.query as { email?: string };
-    const filter: Record<string, any> = {};
-    if (email && email.trim().length > 0) {
-      // Case-insensitive partial match from start or anywhere
-      // Using regex enables admin to type partial email and see matches
-      filter.email = { $regex: email.trim(), $options: "i" };
+    const pageParam = Number(req.query.page ?? 1);
+    if (!Number.isInteger(pageParam) || pageParam < 1) {
+      return res.status(400).json({ error: "Page must be a positive integer" });
     }
-    const items = await PurchaseHistory.find(filter, "-image").sort({ purchaseDate: -1 }).allowDiskUse(true).lean();
+
+    const pageSize = 15;
+    const email = typeof req.query.email === "string" ? req.query.email.trim() : "";
+    const filter: Record<string, any> = {};
+    if (email) {
+      filter.email = { $regex: email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+    }
+    const totalPurchases = await PurchaseHistory.countDocuments(filter);
+    const totalPages = Math.ceil(totalPurchases / pageSize);
+    const page = totalPages > 0 ? Math.min(pageParam, totalPages) : 1;
+    const items = await PurchaseHistory.find(filter, "-image")
+      .sort({ purchaseDate: -1, _id: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean();
     const mapped = items.map(h => ({
       ...h,
       image: h.deliveryUrl
         ? `/api/working-pictures/${h.productId}/image`
         : `/api/catalog/${h.productId}/image`,
     }));
-    res.json(mapped);
+    res.json({ purchases: mapped, totalPurchases, page, totalPages, pageSize });
   } catch (err) {
     console.error("Error fetching all purchase history:", err);
     res.status(500).json({ error: "Failed to fetch purchase history" });

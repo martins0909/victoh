@@ -34,30 +34,43 @@ export default function PaymentsTable({ token }: { token: string }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
   const [searchEmail, setSearchEmail] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPayments, setTotalPayments] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  const fetchPayments = () => {
+  const fetchPayments = (requestedPage = page, search = searchEmail, signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
-  apiFetch("/api/payments", { headers: { Authorization: `Bearer ${token}` } })
+    const params = new URLSearchParams({ page: String(requestedPage) });
+    if (search.trim()) params.set("search", search.trim());
+    apiFetch(`/api/payments?${params.toString()}`, { signal, headers: { Authorization: `Bearer ${token}` } })
       .then((data) => {
-        if (Array.isArray(data)) {
-          setPayments(data);
+        if (data && Array.isArray(data.payments)) {
+          setPayments(data.payments);
+          setTotalPayments(data.totalPayments);
+          setPage(data.page);
+          setTotalPages(data.totalPages);
         } else {
           setError("Invalid response format");
         }
       })
       .catch((e) => {
-        setError(String(e));
+        if (!signal?.aborted) setError(String(e));
       })
       .finally(() => {
-        setLoading(false);
+        if (!signal?.aborted) setLoading(false);
       });
   };
 
   useEffect(() => {
-    fetchPayments();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => fetchPayments(page, searchEmail, controller.signal), searchEmail ? 250 : 0);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, page, searchEmail]);
 
   const handleDeleteClick = (payment: Payment) => {
     setPaymentToDelete(payment);
@@ -80,7 +93,7 @@ export default function PaymentsTable({ token }: { token: string }) {
 
       setDeleteDialogOpen(false);
       setPaymentToDelete(null);
-      fetchPayments();
+      fetchPayments(page, searchEmail);
     } catch (err) {
       toast({
         title: "Error",
@@ -92,20 +105,12 @@ export default function PaymentsTable({ token }: { token: string }) {
 
   if (loading) return <div className="p-4 text-center text-gray-600">Loading payments...</div>;
   if (error) return <div className="p-4 text-center text-red-600 bg-red-50 rounded-lg border border-red-200">Error: {error}</div>;
-  if (!payments || payments.length === 0) return <div className="p-4 text-center text-gray-600">No payments found.</div>;
-
-  // Filter payments based on search email
-  const filteredPayments = searchEmail
-    ? payments.filter((p) => {
-        const userEmail = p.user?.email || p.email || "";
-        return userEmail.toLowerCase().includes(searchEmail.toLowerCase());
-      })
-    : payments;
+  if (!payments || (payments.length === 0 && !searchEmail)) return <div className="p-4 text-center text-gray-600">No payments found.</div>;
 
   return (
     <div className="space-y-4">
       <h2 className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500">
-        Payments ({filteredPayments.length}{searchEmail ? ` of ${payments.length}` : ''})
+        Payments ({searchEmail ? `${totalPayments} matching` : totalPayments})
       </h2>
       
       {/* Search Bar */}
@@ -115,7 +120,10 @@ export default function PaymentsTable({ token }: { token: string }) {
           type="text"
           placeholder="Search by user email..."
           value={searchEmail}
-          onChange={(e) => setSearchEmail(e.target.value)}
+          onChange={(e) => {
+            setSearchEmail(e.target.value);
+            setPage(1);
+          }}
           className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
         />
         {searchEmail && (
@@ -130,7 +138,7 @@ export default function PaymentsTable({ token }: { token: string }) {
         )}
       </div>
 
-      {filteredPayments.length === 0 ? (
+      {payments.length === 0 ? (
         <div className="p-8 text-center text-gray-600 bg-gray-50 dark:bg-black rounded-xl border-2 border-gray-200 dark:border-gray-800">
           No payments found{searchEmail ? ` for "${searchEmail}"` : ""}.
         </div>
@@ -149,7 +157,7 @@ export default function PaymentsTable({ token }: { token: string }) {
               </tr>
             </thead>
             <tbody>
-              {filteredPayments.map((p) => {
+              {payments.map((p) => {
               // Get user email from either populated user object or direct email field
               const userEmail = p.user?.email || p.email || "—";
               // Normalize status to lowercase for comparison
@@ -190,6 +198,30 @@ export default function PaymentsTable({ token }: { token: string }) {
           </tbody>
         </table>
       </div>
+      )}
+
+      {totalPages > 0 && (
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            Page {page} of {totalPages} · {totalPayments} payments
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPage(current => Math.max(1, current - 1))}
+              disabled={loading || page <= 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setPage(current => Math.min(totalPages, current + 1))}
+              disabled={loading || page >= totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

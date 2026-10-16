@@ -158,18 +158,28 @@ export const purchaseHistoryAPI = {
   },
 
   // Get all purchase history (admin only) with optional email search
-  async getAll(email?: string): Promise<PurchaseHistory[]> {
+  async getAll(opts: { email?: string; page?: number; signal?: AbortSignal } = {}): Promise<{
+    purchases: PurchaseHistory[];
+    totalPurchases: number;
+    page: number;
+    totalPages: number;
+  }> {
     const token = getAdminToken();
-    const query = email && email.trim().length > 0 ? `?email=${encodeURIComponent(email.trim())}` : "";
-    const res = await apiFetch(`/api/purchase-history${query}`, {
+    const params = new URLSearchParams({ page: String(opts.page ?? 1) });
+    if (opts.email?.trim()) params.set("email", opts.email.trim());
+    const res = await apiFetch(`/api/purchase-history?${params.toString()}`, {
       headers: {
         ...(token && { 'Authorization': `Bearer ${token}` }),
       },
-    });
-    return (res as any[]).map(h => ({
-      ...h,
-      image: h.image && h.image.startsWith("/api/") ? `${API_BASE}${h.image}` : h.image
-    }));
+      signal: opts.signal,
+    }) as { purchases: PurchaseHistory[]; totalPurchases: number; page: number; totalPages: number };
+    return {
+      ...res,
+      purchases: res.purchases.map(h => ({
+        ...h,
+        image: h.image && h.image.startsWith("/api/") ? `${API_BASE}${h.image}` : h.image
+      })),
+    };
   },
 
   // Complete purchase (deduct balance, update product, create history)

@@ -12,58 +12,56 @@ export default function CartsTable({ token }: { token: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchEmail, setSearchEmail] = useState("");
-  const [searching, setSearching] = useState(false);
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseHistory | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPurchases, setTotalPurchases] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  async function loadData(emailFilter?: string) {
+  async function loadData(emailFilter: string, requestedPage: number, signal?: AbortSignal) {
     setLoading(true);
     setError(null);
     try {
-  const data = await purchaseHistoryAPI.getAll(emailFilter);
-  setPurchases(data);
+      const data = await purchaseHistoryAPI.getAll({ email: emailFilter, page: requestedPage, signal });
+      setPurchases(data.purchases);
+      setTotalPurchases(data.totalPurchases);
+      setPage(data.page);
+      setTotalPages(data.totalPages);
     } catch (e) {
-      setError(String(e));
+      if (!signal?.aborted) setError(String(e));
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadData();
-  }, [token]);
+    const controller = new AbortController();
+    void loadData(appliedSearch, page, controller.signal);
+    return () => controller.abort();
+  }, [token, appliedSearch, page]);
 
-  async function handleSearch(e: React.FormEvent) {
+  function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    setSearching(true);
-    await loadData(searchEmail.trim() || undefined);
-    setSearching(false);
+    setPage(1);
+    setAppliedSearch(searchEmail.trim());
   }
 
   function clearSearch() {
-    if (searchEmail.trim().length === 0) return;
+    if (searchEmail.trim().length === 0 && !appliedSearch) return;
     setSearchEmail("");
-    loadData();
+    setPage(1);
+    setAppliedSearch("");
   }
 
-  if (loading) return <div className="p-4 text-center text-gray-600 dark:text-gray-400">Loading purchase history...</div>;
+  if (loading && !purchases) return <div className="p-4 text-center text-gray-600 dark:text-gray-400">Loading purchase history...</div>;
   if (error) return <div className="p-4 text-center text-red-600 bg-red-50 rounded-lg border border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-900">Error: {error}</div>;
-  if (!purchases || purchases.length === 0) {
-    return (
-      <div className="p-4 text-center text-gray-600 dark:text-gray-400">
-        {searchEmail.trim().length > 0 ? (
-          <>No results for <span className="font-semibold">{searchEmail}</span>.</>
-        ) : (
-          <>No purchase history found.</>
-        )}
-      </div>
-    );
-  }
+  if (!purchases) return null;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h2 className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500">
-          Buy History ({purchases.length})
+          Buy History ({appliedSearch ? `${totalPurchases} matching` : totalPurchases})
         </h2>
         <form onSubmit={handleSearch} className="flex items-center gap-2 w-full md:w-auto">
           <div className="relative flex-1 md:flex-none">
@@ -84,12 +82,21 @@ export default function CartsTable({ token }: { token: string }) {
             )}
             <button
               type="submit"
-              disabled={searching}
+              disabled={loading}
               className="absolute right-2 top-1/2 -translate-y-1/2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white text-sm font-medium px-3 py-1 rounded-md transition-colors"
-            >{searching ? 'Searching...' : 'Search'}</button>
+            >Search</button>
           </div>
         </form>
       </div>
+      {purchases.length === 0 ? (
+        <div className="p-8 text-center text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-black rounded-xl border-2 border-gray-200 dark:border-gray-800">
+          {appliedSearch ? (
+            <>No results for <span className="font-semibold">{appliedSearch}</span>.</>
+          ) : (
+            <>No purchase history found.</>
+          )}
+        </div>
+      ) : (
       <div className="overflow-x-auto rounded-xl border-2 border-gray-200 dark:border-gray-800">
         <table className="w-full table-auto border-collapse min-w-[700px]">
           <thead className="bg-gradient-to-r from-purple-50 to-purple-50 dark:from-purple-950/30 dark:to-purple-950/30">
@@ -134,6 +141,23 @@ export default function CartsTable({ token }: { token: string }) {
           </tbody>
         </table>
       </div>
+      )}
+
+      {totalPages > 0 && (
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            Page {page} of {totalPages} · {totalPurchases} purchases
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setPage(current => Math.max(1, current - 1))} disabled={loading || page <= 1}>
+              Previous
+            </Button>
+            <Button variant="outline" onClick={() => setPage(current => Math.min(totalPages, current + 1))} disabled={loading || page >= totalPages}>
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={!!selectedPurchase} onOpenChange={(open) => !open && setSelectedPurchase(null)}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
