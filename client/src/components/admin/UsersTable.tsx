@@ -34,30 +34,43 @@ export default function UsersTable({ token }: { token: string }) {
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjusting, setAdjusting] = useState(false);
   const [searchEmail, setSearchEmail] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  const fetchUsers = () => {
+  const fetchUsers = (requestedPage = page, search = searchEmail, signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
-  apiFetch("/api/users", { headers: { Authorization: `Bearer ${token}` } })
+    const params = new URLSearchParams({ page: String(requestedPage) });
+    if (search.trim()) params.set("search", search.trim());
+    apiFetch(`/api/users?${params.toString()}`, { signal, headers: { Authorization: `Bearer ${token}` } })
       .then((data) => {
-        if (Array.isArray(data)) {
-          setUsers(data);
+        if (data && Array.isArray(data.users)) {
+          setUsers(data.users);
+          setTotalUsers(data.totalUsers);
+          setPage(data.page);
+          setTotalPages(data.totalPages);
         } else {
           setError("Invalid response format");
         }
       })
       .catch((e) => {
-        setError(String(e));
+        if (!signal?.aborted) setError(String(e));
       })
       .finally(() => {
-        setLoading(false);
+        if (!signal?.aborted) setLoading(false);
       });
   };
 
   useEffect(() => {
-    fetchUsers();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => fetchUsers(page, searchEmail, controller.signal), searchEmail ? 250 : 0);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, page, searchEmail]);
 
   const handleDeleteUser = async () => {
     if (!deleteUserId) return;
@@ -71,7 +84,7 @@ export default function UsersTable({ token }: { token: string }) {
       
       toast.success("User deleted successfully");
       setDeleteUserId(null);
-      fetchUsers(); // Refresh the list
+      fetchUsers(page, searchEmail);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete user");
     } finally {
@@ -103,7 +116,7 @@ export default function UsersTable({ token }: { token: string }) {
       toast.success(`₦${amount.toFixed(2)} ${type === 'add' ? 'added to' : 'subtracted from'} user wallet`);
       setAdjustingUserId(null);
       setAdjustAmount("");
-      fetchUsers(); // Refresh the list
+      fetchUsers(page, searchEmail);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to adjust balance");
     } finally {
@@ -113,18 +126,13 @@ export default function UsersTable({ token }: { token: string }) {
 
   if (loading) return <div className="p-4 text-center text-gray-600 dark:text-gray-400">Loading users...</div>;
   if (error) return <div className="p-4 text-center text-red-600 bg-red-50 rounded-lg border border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-900">Error: {error}</div>;
-  if (!users || users.length === 0) return <div className="p-4 text-center text-gray-600 dark:text-gray-400">No users found.</div>;
-
-  // Filter users based on search email
-  const filteredUsers = searchEmail
-    ? users.filter((u) => u.email.toLowerCase().includes(searchEmail.toLowerCase()))
-    : users;
+  if (!users || (users.length === 0 && !searchEmail)) return <div className="p-4 text-center text-gray-600 dark:text-gray-400">No users found.</div>;
 
   return (
     <>
       <div className="space-y-4">
         <h2 className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500">
-          Registered Users ({filteredUsers.length}{searchEmail ? ` of ${users.length}` : ''})
+          Registered Users ({searchEmail ? `${totalUsers} matching` : totalUsers})
         </h2>
         
         {/* Search Bar */}
@@ -134,7 +142,10 @@ export default function UsersTable({ token }: { token: string }) {
             type="text"
             placeholder="Search by user email..."
             value={searchEmail}
-            onChange={(e) => setSearchEmail(e.target.value)}
+            onChange={(e) => {
+              setSearchEmail(e.target.value);
+              setPage(1);
+            }}
             className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           />
           {searchEmail && (
@@ -149,7 +160,7 @@ export default function UsersTable({ token }: { token: string }) {
           )}
         </div>
 
-        {filteredUsers.length === 0 ? (
+        {users.length === 0 ? (
           <div className="p-8 text-center text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-black rounded-xl border-2 border-gray-200 dark:border-gray-800">
             No users found{searchEmail ? ` for "${searchEmail}"` : ""}.
           </div>
@@ -168,7 +179,7 @@ export default function UsersTable({ token }: { token: string }) {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((u) => (
+                {users.map((u) => (
                 <tr key={u._id} className="border-t border-gray-200 dark:border-gray-800 hover:bg-purple-50/50 dark:hover:bg-[#18181b]/50 transition-colors">
                   <td className="p-3 md:p-4 text-xs md:text-sm text-gray-800 dark:text-gray-200 font-mono break-all">{u._id}</td>
                   <td className="p-3 md:p-4 text-sm md:text-base text-gray-800 dark:text-gray-200">{u.email}</td>
@@ -214,6 +225,30 @@ export default function UsersTable({ token }: { token: string }) {
         </div>
         )}
       </div>
+
+      {totalPages > 0 && (
+        <div className="mt-4 flex items-center justify-between gap-4">
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            Page {page} of {totalPages} · {totalUsers} users
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={loading || page <= 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              disabled={loading || page >= totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteUserId} onOpenChange={(open) => !open && setDeleteUserId(null)}>

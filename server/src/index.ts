@@ -432,8 +432,27 @@ app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
 // Users
 app.get("/api/users", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const users = await User.find().lean();
-    res.json(users);
+    const pageParam = Number(req.query.page ?? 1);
+    if (!Number.isInteger(pageParam) || pageParam < 1) {
+      return res.status(400).json({ error: "Page must be a positive integer" });
+    }
+
+    const pageSize = 15;
+    const emailSearch = typeof req.query.search === "string" ? req.query.search.trim() : "";
+    const filter = emailSearch
+      ? { email: { $regex: emailSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } }
+      : {};
+    const totalUsers = await User.countDocuments(filter);
+    const totalPages = Math.ceil(totalUsers / pageSize);
+    const page = totalPages > 0 ? Math.min(pageParam, totalPages) : 1;
+    const users = await User.find(filter)
+      .select("_id email name balance createdAt")
+      .sort({ createdAt: -1, _id: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean();
+
+    res.json({ users, totalUsers, page, totalPages, pageSize });
   } catch (err) {
     console.error("Error fetching users:", err);
     res.status(500).json({ error: "Failed to fetch users" });
