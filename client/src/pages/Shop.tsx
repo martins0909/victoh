@@ -533,6 +533,16 @@ const Shop = () => {
     }
   };
 
+  const copyQuickPayValue = async (label: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} copied!`);
+    } catch (err) {
+      console.error(`Failed to copy Quick Pay ${label.toLowerCase()}`, err);
+      toast.error(`Could not copy ${label.toLowerCase()}. Please copy it manually.`);
+    }
+  };
+
   const initiateErcasPayment = async () => {
     const amount = parseFloat(addFundsAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -2661,61 +2671,153 @@ const Shop = () => {
 
       {/* Payment Method Selection Dialog */}
       <Dialog open={showPaymentMethodDialog} onOpenChange={setShowPaymentMethodDialog}>
-        <DialogContent className="sm:max-w-md w-[90%] rounded-xl">
-          <DialogHeader>
-            <DialogTitle>Select Payment Method</DialogTitle>
-             <DialogDescription>
-              Choose how you want to add funds to your wallet.
+        <DialogContent className="sm:max-w-md w-[calc(100%-2rem)] rounded-2xl border-gray-200 p-6 shadow-2xl dark:border-gray-800">
+          <DialogHeader className="space-y-2">
+            <div className="mb-1 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+              <Wallet className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-xl">Add money to your wallet</DialogTitle>
+            <DialogDescription>
+              Choose a secure payment method to continue.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <Button onClick={handleQuickPay} disabled={isCreatingQuickPay} className="w-full h-14 justify-start px-4 text-left font-semibold text-base bg-purple-600 hover:bg-purple-700 shadow-md">
-              <Zap className="mr-3 h-5 w-5" />
-              {isCreatingQuickPay ? "Preparing Quick Pay..." : "Quick Pay"}
+          <div className="py-2">
+            <Button
+              onClick={handleQuickPay}
+              disabled={isCreatingQuickPay}
+              className="h-auto w-full justify-between rounded-xl border border-purple-200 bg-purple-50 p-4 text-left text-gray-900 shadow-sm transition hover:border-purple-400 hover:bg-purple-100 dark:border-purple-900 dark:bg-purple-950/40 dark:text-white dark:hover:bg-purple-950"
+            >
+              <span className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-600 text-white shadow-sm">
+                  <Zap className="h-5 w-5" />
+                </span>
+                <span className="flex flex-col items-start gap-1">
+                  <span className="font-semibold">{isCreatingQuickPay ? "Preparing Quick Pay..." : "Quick Pay"}</span>
+                  <span className="text-xs font-normal text-gray-600 dark:text-gray-400">Pay by bank transfer</span>
+                </span>
+              </span>
+              <ChevronDown className="h-4 w-4 -rotate-90 text-purple-600 dark:text-purple-300" />
             </Button>
           </div>
           <DialogFooter>
-             <Button variant="ghost" onClick={() => setShowPaymentMethodDialog(false)} className="w-full">Cancel</Button>
+            <Button variant="ghost" onClick={() => setShowPaymentMethodDialog(false)} className="w-full rounded-xl">Cancel</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Quick Pay Details Dialog */}
       <Dialog open={showQuickPayDetailsDialog} onOpenChange={setShowQuickPayDetailsDialog}>
-        <DialogContent className="sm:max-w-md w-[90%] rounded-xl">
-          <DialogHeader>
-            <DialogTitle>Quick Pay Details</DialogTitle>
+        <DialogContent className="max-h-[90vh] w-[calc(100%-2rem)] max-w-md gap-5 overflow-y-auto rounded-2xl border-gray-200 p-0 shadow-2xl dark:border-gray-800">
+          <DialogHeader className="space-y-3 px-6 pt-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                <Zap className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <DialogTitle className="text-xl">Quick Pay details</DialogTitle>
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-purple-600 dark:text-purple-400">Bank transfer</p>
+              </div>
+            </div>
             <DialogDescription>
-              Use the account details below to complete your wallet funding.
+              Transfer the amount below using these account details. Your wallet will be credited after payment is confirmed.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div>
-              <p className="text-xs text-gray-500">Bank</p>
-              <p className="font-semibold">{quickPayDetails?.bankName || "PocketFi"}</p>
+          <div className="space-y-4 px-6">
+            <div className="rounded-2xl bg-gradient-to-br from-purple-700 to-indigo-700 p-4 text-white shadow-md">
+              <p className="text-xs font-medium text-purple-100">Amount to transfer</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight">
+                ₦{(Number.parseFloat(addFundsAmount) || 0).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
             </div>
-            <div>
-              <p className="text-xs text-gray-500">Account Name</p>
-              <p className="font-semibold">{quickPayDetails?.accountName || "Pending"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Account Number</p>
-              <p className="font-semibold break-all">{quickPayDetails?.accountNumber || "Pending"}</p>
-            </div>
-            {quickPayDetails?.paymentReference && (
-              <div>
-                <p className="text-xs text-gray-500">Reference</p>
-                <p className="font-mono text-sm break-all">{quickPayDetails.paymentReference}</p>
+
+            <div className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-950">
+              <div className="px-4 py-3">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Bank</p>
+                <p className="mt-1 font-semibold text-gray-900 dark:text-gray-100">{quickPayDetails?.bankName || "PocketFi"}</p>
               </div>
-            )}
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Account name</p>
+                  <p className="mt-1 break-words font-semibold text-gray-900 dark:text-gray-100">{quickPayDetails?.accountName || "Pending"}</p>
+                </div>
+                {quickPayDetails?.accountName && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void copyQuickPayValue("Account name", quickPayDetails.accountName!)}
+                    className="h-9 shrink-0 gap-2 rounded-lg"
+                    aria-label="Copy account name"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Account number</p>
+                  <p className="mt-1 break-all font-mono text-lg font-bold tracking-wide text-gray-900 dark:text-gray-100">{quickPayDetails?.accountNumber || "Pending"}</p>
+                </div>
+                {quickPayDetails?.accountNumber && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void copyQuickPayValue("Account number", quickPayDetails.accountNumber!)}
+                    className="h-9 shrink-0 gap-2 rounded-lg border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-900 dark:text-purple-300 dark:hover:bg-purple-950"
+                    aria-label="Copy account number"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
+                  </Button>
+                )}
+              </div>
+              {quickPayDetails?.paymentReference && (
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Payment reference</p>
+                    <p className="mt-1 break-all font-mono text-sm font-medium text-gray-900 dark:text-gray-100">{quickPayDetails.paymentReference}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void copyQuickPayValue("Payment reference", quickPayDetails.paymentReference!)}
+                    className="h-9 shrink-0 gap-2 rounded-lg"
+                    aria-label="Copy payment reference"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
+                  </Button>
+                </div>
+              )}
+            </div>
             {quickPayDetails?.message && (
-              <div className="rounded-lg bg-gray-50 dark:bg-[#111111] p-3 text-sm text-gray-700 dark:text-gray-300">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-relaxed text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
                 {quickPayDetails.message}
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowQuickPayDetailsDialog(false)} className="w-full">Close</Button>
+          <DialogFooter className="flex-col gap-2 border-t border-gray-100 px-6 py-4 dark:border-gray-800 sm:flex-col sm:space-x-0">
+            <Button
+              type="button"
+              onClick={() => {
+                const details = [
+                  `Bank: ${quickPayDetails?.bankName || "PocketFi"}`,
+                  `Account name: ${quickPayDetails?.accountName || "Pending"}`,
+                  `Account number: ${quickPayDetails?.accountNumber || "Pending"}`,
+                  quickPayDetails?.paymentReference ? `Payment reference: ${quickPayDetails.paymentReference}` : "",
+                  `Amount: ₦${(Number.parseFloat(addFundsAmount) || 0).toFixed(2)}`,
+                ].filter(Boolean).join("\n");
+                void copyQuickPayValue("Bank details", details);
+              }}
+              className="w-full rounded-xl bg-purple-600 font-semibold text-white shadow-sm hover:bg-purple-700"
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              Copy all payment details
+            </Button>
+            <Button variant="outline" onClick={() => setShowQuickPayDetailsDialog(false)} className="w-full rounded-xl">Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
