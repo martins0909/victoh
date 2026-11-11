@@ -59,7 +59,7 @@ const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET || "";
 const RESEND_API_KEY = (process.env.RESEND_API_KEY || "").trim();
 const RESEND_FROM = (process.env.RESEND_FROM || "").trim();
 
-const PURCHASE_HISTORY_RETENTION_MONTHS = 5;
+const PURCHASE_HISTORY_RETENTION_MONTHS = 3;
 const PURCHASE_HISTORY_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 function getPurchaseHistoryCutoff(now = new Date()): Date {
@@ -77,7 +77,7 @@ async function purgeExpiredPurchaseHistory(): Promise<void> {
     const cutoff = getPurchaseHistoryCutoff();
     const result = await PurchaseHistory.deleteMany({ purchaseDate: { $lt: cutoff } });
     if (result.deletedCount > 0) {
-      console.log(`Deleted ${result.deletedCount} purchase history records older than five months`);
+      console.log(`Deleted ${result.deletedCount} purchase history records older than three months`);
     }
   } catch (err) {
     console.error("Purchase history retention cleanup failed:", err);
