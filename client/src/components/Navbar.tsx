@@ -6,7 +6,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useRef, useState, useEffect } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { catalogCategoriesAPI } from "@/lib/api";
-import logo from "@/assets/logovic.png";
+import logo from "@/assets/viklogo.jpeg";
 
 interface NavbarProps {
   isShopPage?: boolean;

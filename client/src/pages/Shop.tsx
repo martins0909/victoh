@@ -15,7 +15,8 @@ import bannerLog1 from "@/assets/bannerlog1.jpg";
 import bannerLog2 from "@/assets/bannerlog2.jpg";
 import bannerLog3 from "@/assets/bannerlogo3.png";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
-import { Plus, LogOut, BadgeCheck, X, ShoppingCart, Minus, Send } from "lucide-react";
+import { Plus, LogOut, BadgeCheck, X, ShoppingCart, Minus, Send, LayoutGrid, ExternalLink, ChevronRight, Megaphone } from "lucide-react";
+import viklogo from "@/assets/viklogo.jpeg";
 // Removed demo product assets; shop now shows only database products
 
 interface SerialNumber {
@@ -82,6 +83,7 @@ const Shop = () => {
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
   const [showMoreDrawer, setShowMoreDrawer] = useState(false);
+  const [showCategoriesList, setShowCategoriesList] = useState(false);
   const [api, setApi] = useState<CarouselApi>();
 
   useEffect(() => {
@@ -94,6 +96,18 @@ const Shop = () => {
     }, 3000);
 
     return () => clearInterval(interval);
+  }, [api]);
+
+  // Track active promo banner slide (for the dot indicators)
+  const [bannerIndex, setBannerIndex] = useState(0);
+  useEffect(() => {
+    if (!api) return;
+    const onSelect = () => setBannerIndex(api.selectedScrollSnap());
+    onSelect();
+    api.on("select", onSelect);
+    return () => {
+      api.off("select", onSelect);
+    };
   }, [api]);
   const [processedTransactions, setProcessedTransactions] = useState<Set<string>>(new Set());
   // Track if Ercas redirect has been processed in this session
@@ -458,6 +472,34 @@ const Shop = () => {
       }
     }
   };
+
+  // Mobile-only category banner shown above each category's product list
+  const renderMobileCategoryBanner = (category: string, isSingleView: boolean) => (
+    <div className="md:hidden mx-2 mb-3 relative overflow-hidden flex items-center gap-3 rounded-2xl bg-gradient-to-r from-purple-800 via-purple-600 to-fuchsia-600 px-3 py-3 shadow-lg shadow-purple-900/20 ring-1 ring-white/10">
+      <div className="pointer-events-none absolute -top-8 -right-6 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+      <div className="relative flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/15 ring-2 ring-white/40">
+        {categoryIcons[category] ? (
+          <img src={categoryIcons[category]} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span className="text-base font-extrabold text-white">{category.charAt(0).toUpperCase()}</span>
+        )}
+      </div>
+      <h3 className="relative flex-1 min-w-0 text-center text-sm font-extrabold uppercase tracking-wide text-white break-words leading-tight">
+        {category}
+      </h3>
+      <button
+        type="button"
+        onClick={() => {
+          setActiveCategory(isSingleView ? "All" : category);
+          setTimeout(() => scrollToCategory(isSingleView ? "All" : category), 60);
+        }}
+        className="relative flex flex-shrink-0 items-center gap-1 rounded-full bg-white px-3.5 py-2 text-xs font-bold text-purple-700 shadow-md transition-all hover:bg-purple-50 active:scale-95"
+      >
+        {isSingleView ? "Show All" : "See More"}
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
 
   const handleAddFunds = () => {
      const amount = parseFloat(addFundsAmount);
@@ -980,14 +1022,133 @@ const Shop = () => {
       </Dialog>
 
       <div className="pt-20 md:pt-24 relative">
-        {/* Mobile Greeting Header */}
-        <div className="block md:hidden px-4 mb-5 animate-in fade-in slide-in-from-top duration-500">
-          <h1 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100">
-            Hello {user.name || user.email.split("@")[0]} <span className="inline-block">👋</span>
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Here's an overview of your account's recent activity.
-          </p>
+        {/* Mobile: Scrolling announcement bar + promo banner slider */}
+        <div className="block md:hidden px-4 mb-5 space-y-3 animate-in fade-in slide-in-from-top duration-500">
+          <style>{`
+            @keyframes shop-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+            .shop-marquee-track { display: flex; width: max-content; animation: shop-marquee 28s linear infinite; }
+            .shop-marquee-wrap:hover .shop-marquee-track, .shop-marquee-wrap:active .shop-marquee-track { animation-play-state: paused; }
+          `}</style>
+
+          {/* Announcement bar (marquee) */}
+          <div className="shop-marquee-wrap relative flex items-center overflow-hidden rounded-xl bg-gradient-to-r from-purple-700 via-purple-600 to-fuchsia-600 shadow-md shadow-purple-900/20 ring-1 ring-white/10">
+            <div className="relative z-10 flex h-full flex-shrink-0 items-center bg-purple-900/60 px-2.5 py-2.5">
+              <Megaphone className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1 overflow-hidden py-2.5">
+              <div className="shop-marquee-track text-[13px] font-semibold text-white">
+                {[0, 1].map((dup) => (
+                  <div key={dup} className="flex flex-shrink-0 items-center" aria-hidden={dup === 1}>
+                    {[
+                      `Hello ${user.name || user.email.split("@")[0]} 👋 Welcome back`,
+                      "New stock added regularly — check your favourite categories 🔥",
+                      "Fast delivery on every purchase ⚡",
+                      "Need help? Reach our support on Telegram or WhatsApp 💬",
+                    ].map((msg, i) => (
+                      <span key={i} className="flex items-center whitespace-nowrap px-6">
+                        {msg}
+                        <span className="ml-12 h-1.5 w-1.5 rounded-full bg-white/50" />
+                      </span>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Promo banner carousel */}
+          <div>
+            <Carousel setApi={setApi} opts={{ loop: true }} className="w-full">
+              <CarouselContent className="-ml-3">
+                {/* Slide 1: Browse */}
+                <CarouselItem className="pl-3">
+                  <div className="relative flex h-40 flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-purple-950 via-purple-800 to-purple-600 p-4 text-white shadow-xl shadow-purple-900/30 ring-1 ring-white/10">
+                    <div className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full bg-fuchsia-500/30 blur-3xl" />
+                    <div className="pointer-events-none absolute -bottom-10 left-0 h-28 w-28 rounded-full bg-purple-300/20 blur-2xl" />
+                    <ShoppingBag className="pointer-events-none absolute -right-3 bottom-2 h-28 w-28 -rotate-12 text-white/10" />
+                    <div className="relative flex items-center gap-2">
+                      <img src={viklogo} alt="" className="h-7 w-7 rounded-lg object-cover ring-1 ring-white/30" />
+                      <span className="text-[11px] font-semibold uppercase tracking-widest text-purple-100/80">Victohs Store</span>
+                    </div>
+                    <div className="relative">
+                      <h2 className="text-xl font-extrabold leading-tight">Premium Accounts,<br />Delivered Instantly</h2>
+                      <p className="mt-1 text-xs text-purple-100/80">Browse verified accounts across all categories.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById("products-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                      className="relative flex w-fit items-center gap-1 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-purple-700 shadow-md active:scale-95"
+                    >
+                      Shop Now <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </CarouselItem>
+
+                {/* Slide 2: Telegram */}
+                <CarouselItem className="pl-3">
+                  <div className="relative flex h-40 flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-gray-950 via-purple-950 to-purple-800 p-4 text-white shadow-xl shadow-purple-900/30 ring-1 ring-white/10">
+                    <div className="pointer-events-none absolute -left-8 -top-10 h-36 w-36 rounded-full bg-purple-500/30 blur-3xl" />
+                    <Send className="pointer-events-none absolute -right-2 bottom-1 h-28 w-28 -rotate-12 text-white/10" />
+                    <div className="relative flex items-center gap-2">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500">
+                        <Send className="h-4 w-4 text-white" />
+                      </span>
+                      <span className="text-[11px] font-semibold uppercase tracking-widest text-purple-100/80">Community</span>
+                    </div>
+                    <div className="relative">
+                      <h2 className="text-xl font-extrabold leading-tight">Stay Updated</h2>
+                      <p className="mt-1 text-xs text-purple-100/80">Join our Telegram platform today for more updates.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => window.open("https://t.me/+2347043768862", "_blank")}
+                      className="relative flex w-fit items-center gap-1 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-purple-700 shadow-md active:scale-95"
+                    >
+                      Join Telegram <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </CarouselItem>
+
+                {/* Slide 3: Add funds */}
+                <CarouselItem className="pl-3">
+                  <div className="relative flex h-40 flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-purple-700 via-fuchsia-700 to-purple-950 p-4 text-white shadow-xl shadow-purple-900/30 ring-1 ring-white/10">
+                    <div className="pointer-events-none absolute -right-8 -bottom-10 h-36 w-36 rounded-full bg-fuchsia-400/30 blur-3xl" />
+                    <Wallet className="pointer-events-none absolute -right-3 bottom-2 h-28 w-28 -rotate-12 text-white/10" />
+                    <div className="relative flex items-center gap-2">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/20">
+                        <Plus className="h-4 w-4 text-white" />
+                      </span>
+                      <span className="text-[11px] font-semibold uppercase tracking-widest text-purple-100/80">Wallet</span>
+                    </div>
+                    <div className="relative">
+                      <h2 className="text-xl font-extrabold leading-tight">Top Up In Seconds</h2>
+                      <p className="mt-1 text-xs text-purple-100/80">Fund your wallet and start buying right away.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddMoneyDialog(true)}
+                      className="relative flex w-fit items-center gap-1 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-purple-700 shadow-md active:scale-95"
+                    >
+                      Add Funds <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </CarouselItem>
+              </CarouselContent>
+            </Carousel>
+
+            {/* Dots */}
+            <div className="mt-2.5 flex items-center justify-center gap-1.5">
+              {[0, 1, 2].map((i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => api?.scrollTo(i)}
+                  aria-label={`Go to slide ${i + 1}`}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${bannerIndex === i ? "w-6 bg-purple-600" : "w-1.5 bg-gray-300 dark:bg-gray-700"}`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="px-0 md:px-6">
@@ -1251,7 +1412,8 @@ const Shop = () => {
 
                       return (
                       <div key={category} id={`category-${category}`} className="scroll-mt-24">
-                        <div className="flex items-center justify-between mb-4 md:mb-6 px-4 md:px-0">
+                        {renderMobileCategoryBanner(category, false)}
+                        <div className="hidden md:flex items-center justify-between mb-4 md:mb-6 px-4 md:px-0">
                           <h3 className="text-xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500 border-b-2 border-gray-200 dark:border-gray-800 pb-2 flex-1">
                             {category}
                           </h3>
@@ -1387,7 +1549,8 @@ const Shop = () => {
 
                       return (
                         <>
-                          <div className="flex items-center justify-between mb-4 md:mb-6 px-4 md:px-0">
+                          {renderMobileCategoryBanner(activeCategory, true)}
+                          <div className="hidden md:flex items-center justify-between mb-4 md:mb-6 px-4 md:px-0">
                             <h3 className="text-xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500 border-b-2 border-gray-200 dark:border-gray-800 pb-2 flex-1">
                               {activeCategory}
                             </h3>
@@ -1609,6 +1772,100 @@ const Shop = () => {
         </div>
       </div>
     </div>
+
+      {/* Mobile: Live Activity (recent purchases and deposits), shown before the footer */}
+      {(() => {
+        const maskedName = `${(user.name || user.email.split("@")[0]).slice(0, 3)}***`;
+        const timeAgo = (iso: string) => {
+          const diff = Math.max(0, Date.now() - new Date(iso).getTime());
+          const mins = Math.floor(diff / 60000);
+          if (isNaN(mins)) return "";
+          if (mins < 1) return "Just now";
+          if (mins < 60) return `${mins} min${mins === 1 ? "" : "s"} ago`;
+          const hrs = Math.floor(mins / 60);
+          if (hrs < 24) return `${hrs} hr${hrs === 1 ? "" : "s"} ago`;
+          const days = Math.floor(hrs / 24);
+          return `${days} day${days === 1 ? "" : "s"} ago`;
+        };
+
+        const activities = [
+          ...purchaseHistory.map((p) => ({
+            kind: "buy" as const,
+            label: p.name,
+            amount: Number(p.price || 0) * Number(p.quantity || 1),
+            date: p.purchaseDate,
+          })),
+          ...depositHistory
+            .filter((d) => d.status === "success" || d.status === "completed")
+            .map((d) => ({
+              kind: "deposit" as const,
+              label: d.method || "Wallet",
+              amount: Number(d.amount || 0),
+              date: d.createdAt,
+            })),
+        ]
+          .filter((a) => a.date && !isNaN(new Date(a.date).getTime()))
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 5);
+
+        return (
+          <section className="md:hidden px-4 mt-8 mb-4">
+            <div className="overflow-hidden rounded-2xl border border-purple-600/60 bg-white dark:bg-[#0b0b12] shadow-xl shadow-purple-900/10">
+              {/* Header */}
+              <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple-800 via-purple-600 to-fuchsia-600 py-4">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-300 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-400" />
+                </span>
+                <h2 className="text-lg font-extrabold uppercase tracking-wide text-white">Live Activity</h2>
+              </div>
+
+              {/* Column titles */}
+              <div className="flex items-center justify-between bg-gray-100 dark:bg-white/5 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <span>Activity</span>
+                <span>Time</span>
+              </div>
+
+              {/* Rows */}
+              {activities.length === 0 ? (
+                <div className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                  No activity yet. Your purchases and deposits will show up here.
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100 dark:divide-white/10">
+                  {activities.map((a, i) => (
+                    <div key={i} className="px-5 py-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 text-sm font-medium text-gray-800 dark:text-gray-100">
+                          {maskedName}{" "}
+                          {a.kind === "buy" ? (
+                            <span className="text-purple-600 dark:text-purple-400">bought</span>
+                          ) : (
+                            <span className="text-green-600 dark:text-green-400">deposited via {a.label}</span>
+                          )}
+                        </p>
+                        <span className="flex-shrink-0 text-xs text-gray-400 dark:text-gray-500">{timeAgo(a.date)}</span>
+                      </div>
+                      {a.kind === "buy" && (
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 break-words line-clamp-2">{a.label}</p>
+                      )}
+                      <p className={`mt-1.5 text-lg font-extrabold ${a.kind === "buy" ? "text-gray-900 dark:text-white" : "text-green-600 dark:text-green-400"}`}>
+                        ₦{a.amount.toLocaleString("en-NG")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="flex items-center justify-center gap-2 bg-gray-100 dark:bg-white/5 py-3 text-sm text-gray-500 dark:text-gray-400">
+                <span className="h-2.5 w-2.5 rounded-full bg-gray-400" />
+                Live updates
+              </div>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Mobile Working Pictures View */}
       {showWorkingPictures && (
@@ -2088,93 +2345,235 @@ const Shop = () => {
         </div>
       )}
 
-      {/* Category Drawer */}
+      {/* Category / Navigation Drawer */}
       {showCategoryDrawer && (
         <>
           {/* Overlay */}
           <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-200"
             onClick={() => setShowCategoryDrawer(false)}
           />
-          
+
           {/* Drawer */}
-          <div className={`fixed top-0 left-0 h-[100dvh] w-80 max-w-[85vw] bg-white dark:bg-black shadow-2xl z-50 md:hidden transform transition-transform duration-300 ease-in-out flex flex-col ${
-            showCategoryDrawer ? 'translate-x-0' : '-translate-x-full'
-          }`}>
+          <div className="fixed top-0 left-0 h-[100dvh] w-80 max-w-[85vw] bg-white dark:bg-[#0f0f14] shadow-2xl z-50 md:hidden flex flex-col border-r border-gray-200 dark:border-white/10 animate-in slide-in-from-left duration-300">
+            {/* Accent bar */}
+            <div className="h-1 w-full bg-gradient-to-r from-purple-600 via-fuchsia-500 to-purple-400" />
+
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Categories</h2>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-3 min-w-0">
+                <img src={viklogo} alt="Logo" className="h-10 w-10 rounded-xl object-cover ring-2 ring-purple-500/30" />
+                <div className="min-w-0">
+                  <div className="text-base font-bold text-gray-900 dark:text-white truncate">
+                    {user?.name || "Welcome"}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    Balance: ₦{Math.max(0, Number(user?.balance || 0)).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
               <button
                 onClick={() => setShowCategoryDrawer(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#18181b] transition-colors"
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
                 aria-label="Close menu"
               >
-                <X className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                <X className="h-5 w-5 text-gray-600 dark:text-gray-300" />
               </button>
             </div>
-            
-            {/* Categories List */}
-            <div className="flex-1 overflow-y-auto py-4 pb-20">
-              {categories.map((category) => {
-                const isActive = activeCategory === category;
-                const categoryProducts = category === "All" 
-                  ? products 
-                  : products.filter(p => p.category === category);
-                const productCount = categoryProducts.length;
-                
-                // Choose appropriate icon for each category
-                const getCategoryIcon = (cat: string) => {
-                  if (categoryIcons[cat]) {
-                    return <img src={categoryIcons[cat]} alt="" className="h-5 w-5 object-contain" />;
-                  }
-                  switch (cat.toLowerCase()) {
-                    case 'all':
-                      return <Menu className="h-5 w-5" />;
-                    case 'social media':
-                    case 'instagram':
-                    case 'facebook':
-                    case 'twitter':
-                    case 'tiktok':
-                      return <div className="h-5 w-5 rounded-full bg-gradient-to-r from-purple-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">S</div>;
-                    case 'gaming':
-                      return <div className="h-5 w-5 rounded-full bg-gradient-to-r from-green-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">G</div>;
-                    case 'music':
-                    case 'spotify':
-                      return <div className="h-5 w-5 rounded-full bg-gradient-to-r from-red-500 to-yellow-500 flex items-center justify-center text-white text-xs font-bold">M</div>;
-                    case 'business':
-                    case 'professional':
-                      return <div className="h-5 w-5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold">B</div>;
-                    default:
-                      return <div className="h-5 w-5 rounded-full bg-gradient-to-r from-gray-500 to-gray-600 flex items-center justify-center text-white text-xs font-bold">C</div>;
-                  }
-                };
-                
+
+            {/* Navigation */}
+            <div className="flex-1 overflow-y-auto px-3 py-3 pb-24">
+              {(() => {
+                const closeDrawer = () => setShowCategoryDrawer(false);
+                const sectionTitle = "px-3 pt-4 pb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500";
+                const itemBase = "relative w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-purple-50 dark:hover:bg-white/5 transition-colors";
+                const iconCls = "h-5 w-5 text-gray-400 dark:text-gray-400 flex-shrink-0";
+                const isHomeActive = activeCategory === "All" && !showWorkingPictures && !showCategoriesList;
+
                 return (
-                  <button
-                    key={category}
-                    onClick={() => {
-                      setActiveCategory(category);
-                      scrollToCategory(category);
-                      setShowCategoryDrawer(false);
-                    }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors ${
-                      isActive ? 'bg-purple-100 dark:bg-purple-900 border-r-4 border-purple-600' : ''
-                    }`}
-                  >
-                    <div className={`flex-shrink-0 ${isActive ? 'text-purple-600' : 'text-gray-600 dark:text-gray-400'}`}>
-                      {getCategoryIcon(category)}
-                    </div>
-                    <div className="flex-1 text-left">
-                      <div className={`font-medium ${isActive ? 'text-purple-600' : 'text-gray-800 dark:text-gray-200'}`}>
-                        {category}
+                  <>
+                    {/* Main */}
+                    <div className={sectionTitle + " pt-1"}>Main</div>
+                    <button
+                      onClick={() => {
+                        closeDrawer();
+                        setActiveCategory("All");
+                        if (showWorkingPictures) setShowWorkingPictures(false);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className={`${itemBase} ${isHomeActive ? "bg-purple-600/10 dark:bg-purple-500/15 !text-purple-600 dark:!text-purple-300" : ""}`}
+                    >
+                      {isHomeActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-7 w-1 rounded-r-full bg-purple-600" />}
+                      <Home className={`h-5 w-5 flex-shrink-0 ${isHomeActive ? "text-purple-600 dark:text-purple-400" : "text-gray-400"}`} />
+                      <span>Home</span>
+                    </button>
+                    <button
+                      onClick={() => { closeDrawer(); setShowWorkingPictures(true); }}
+                      className={itemBase}
+                    >
+                      <Zap className={iconCls} />
+                      <span>Working Profile</span>
+                    </button>
+
+                    {/* Shop */}
+                    <div className={sectionTitle}>Shop</div>
+                    <button
+                      onClick={() => { closeDrawer(); setShowPurchaseHistory(true); }}
+                      className={itemBase}
+                    >
+                      <ShoppingBag className={iconCls} />
+                      <span className="flex-1 text-left">My Orders</span>
+                      {purchaseHistory.length > 0 && (
+                        <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-purple-600 text-white text-[11px] font-bold flex items-center justify-center">
+                          {purchaseHistory.length}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => { closeDrawer(); setShowAddMoneyDialog(true); }}
+                      className={itemBase}
+                    >
+                      <Plus className="h-5 w-5 flex-shrink-0 text-purple-500" />
+                      <span>Add Funds</span>
+                    </button>
+                    <button
+                      onClick={() => { closeDrawer(); setShowDepositHistory(true); }}
+                      className={itemBase}
+                    >
+                      <History className={iconCls} />
+                      <span>Deposit History</span>
+                    </button>
+                    <button
+                      onClick={() => { closeDrawer(); setShowBalanceModal(true); }}
+                      className={itemBase}
+                    >
+                      <Wallet className={iconCls} />
+                      <span>Balance</span>
+                    </button>
+
+                    {/* Categories (expandable) */}
+                    <button
+                      onClick={() => setShowCategoriesList((v) => !v)}
+                      className={`${itemBase} ${showCategoriesList ? "bg-purple-600/10 dark:bg-purple-500/15 !text-purple-600 dark:!text-purple-300" : ""}`}
+                      aria-expanded={showCategoriesList}
+                    >
+                      {showCategoriesList && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-7 w-1 rounded-r-full bg-purple-600" />}
+                      <LayoutGrid className={`h-5 w-5 flex-shrink-0 ${showCategoriesList ? "text-purple-600 dark:text-purple-400" : "text-gray-400"}`} />
+                      <span className="flex-1 text-left">Categories</span>
+                      <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500">
+                        {Math.max(0, categories.length - 1)}
+                      </span>
+                      <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${showCategoriesList ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {showCategoriesList && (
+                      <div className="mt-1 mb-2 ml-5 pl-3 border-l-2 border-purple-500/30 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                        {categories.map((category) => {
+                          const isActive = activeCategory === category;
+                          const productCount = category === "All"
+                            ? products.length
+                            : products.filter((p) => p.category === category).length;
+
+                          return (
+                            <button
+                              key={category}
+                              onClick={() => {
+                                setActiveCategory(category);
+                                scrollToCategory(category);
+                                closeDrawer();
+                              }}
+                              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                                isActive
+                                  ? "bg-purple-600 text-white shadow-sm shadow-purple-600/30"
+                                  : "text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-white/5"
+                              }`}
+                            >
+                              {category === "All" ? (
+                                <LayoutGrid className="h-4 w-4 flex-shrink-0" />
+                              ) : categoryIcons[category] ? (
+                                <img src={categoryIcons[category]} alt="" className="h-4 w-4 object-contain flex-shrink-0" />
+                              ) : (
+                                <span className={`h-4 w-4 flex-shrink-0 rounded-full text-[9px] font-bold flex items-center justify-center ${
+                                  isActive ? "bg-white/25 text-white" : "bg-purple-100 dark:bg-purple-900/60 text-purple-600 dark:text-purple-300"
+                                }`}>
+                                  {category.charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                              <span className="flex-1 text-left truncate">{category}</span>
+                              <span className={`text-[11px] font-semibold ${isActive ? "text-white/80" : "text-gray-400 dark:text-gray-500"}`}>
+                                {productCount}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {productCount} {productCount === 1 ? 'product' : 'products'}
+                    )}
+
+                    {/* Help & Support */}
+                    <div className={sectionTitle}>Help &amp; Support</div>
+                    <button
+                      onClick={() => { closeDrawer(); navigate("/rules"); }}
+                      className={itemBase}
+                    >
+                      <FileText className={iconCls} />
+                      <span>Rules</span>
+                    </button>
+                    <button
+                      onClick={() => setShowCustomerCareOptions((v) => !v)}
+                      className={itemBase}
+                      aria-expanded={showCustomerCareOptions}
+                    >
+                      <Headphones className={iconCls} />
+                      <span className="flex-1 text-left">Support</span>
+                      <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${showCustomerCareOptions ? "rotate-180" : ""}`} />
+                    </button>
+                    {showCustomerCareOptions && (
+                      <div className="mt-1 mb-2 ml-5 pl-3 border-l-2 border-purple-500/30 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <button
+                          onClick={() => { window.open("https://chat.whatsapp.com/HCE6nkuaxXm4j2ugwW5exb", "_blank"); closeDrawer(); }}
+                          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-white/5 transition-colors"
+                        >
+                          <svg className="h-4 w-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                          </svg>
+                          <span>WhatsApp</span>
+                          <ExternalLink className="h-3.5 w-3.5 ml-auto text-gray-400" />
+                        </button>
+                        <button
+                          onClick={() => { window.open("https://t.me/+2347043768862", "_blank"); closeDrawer(); }}
+                          className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-white/5 transition-colors"
+                        >
+                          <MessageCircle className="h-4 w-4 text-sky-500 flex-shrink-0" />
+                          <span>Telegram</span>
+                          <ExternalLink className="h-3.5 w-3.5 ml-auto text-gray-400" />
+                        </button>
                       </div>
-                    </div>
-                  </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        window.open("https://drive.google.com/drive/folders/10zf4evrldtQlb6L5NkPMwTSOs1WW3y7d", "_blank");
+                        closeDrawer();
+                      }}
+                      className={itemBase}
+                    >
+                      <LogIn className={iconCls} />
+                      <span className="flex-1 text-left">How to Login</span>
+                      <ExternalLink className="h-4 w-4 text-gray-400" />
+                    </button>
+                  </>
                 );
-              })}
+              })()}
+            </div>
+
+            {/* Footer: Sign out */}
+            <div className="border-t border-gray-200 dark:border-white/10 p-4 bg-white dark:bg-[#0f0f14]">
+              <button
+                onClick={() => { handleSignOut(); setShowCategoryDrawer(false); }}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-red-500/70 text-red-600 dark:text-red-400 font-semibold py-2.5 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </button>
             </div>
           </div>
         </>
@@ -2905,7 +3304,7 @@ const Shop = () => {
               <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 px-2">More options</h3>
               <div className="grid grid-cols-5 gap-2">
                 <button
-                  onClick={() => { setShowCategoryDrawer(true); setShowMoreDrawer(false); }}
+                  onClick={() => { setShowCategoriesList(true); setShowCategoryDrawer(true); setShowMoreDrawer(false); }}
                   className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400">

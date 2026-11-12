@@ -194,7 +194,7 @@ const Auth = () => {
         <div className="text-center mb-8 animate-in fade-in slide-in-from-top duration-500">
           <div className="inline-flex items-center justify-center mb-4">
             <img 
-              src="/logovic.png" 
+              src="/viklogo.jpeg" 
               alt="Victohs" 
               className="h-16 w-auto drop-shadow-2xl"
             />
