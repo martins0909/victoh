@@ -473,6 +473,47 @@ const Shop = () => {
     }
   };
 
+  // Live Activity feed (mobile). Uses catalog products as the item source and
+  // adds a new event every 3 seconds with a randomised "time ago" label.
+  type LiveEvent = { id: number; kind: "buy" | "deposit"; who: string; label: string; amount: number; when: string };
+  const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
+  const productsRef = useRef<Product[]>([]);
+  productsRef.current = products;
+  useEffect(() => {
+    const names = ["suc", "gra", "kin", "ibr", "ade", "chi", "oba", "tol", "fol", "emm", "mic", "ngo", "sam", "bol", "pet", "dav", "joy", "uch", "vic", "ref", "mar", "hau", "zai", "ife"];
+    const fallbackItems = [
+      { name: "Google Voice", price: 4500 },
+      { name: "FRANCE TikTok 100+ followers", price: 2800 },
+      { name: "Pinterest Accounts", price: 1500 },
+      { name: "USA Facebook Account", price: 3500 },
+      { name: "Twitter (X) Aged Account", price: 2200 },
+    ];
+    const methods = ["Bank Transfer", "Quick Pay", "Card"];
+    const deposits = [1000, 2000, 2500, 5000, 7500, 10000, 13554, 15000, 20000];
+    const times = ["Just now", "2 mins ago", "5 mins ago", "12 mins ago", "30 mins ago", "45 mins ago", "1 hr ago", "2 hrs ago", "5 hrs ago", "8 hrs ago", "Yesterday"];
+    const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+    let nextId = 1;
+
+    const makeEvent = (): LiveEvent => {
+      const who = `${pick(names)}***`;
+      const when = pick(times);
+      if (Math.random() < 0.25) {
+        return { id: nextId++, kind: "deposit", who, label: pick(methods), amount: pick(deposits), when };
+      }
+      const catalog = productsRef.current.length > 0
+        ? productsRef.current.map((p) => ({ name: p.name, price: p.price }))
+        : fallbackItems;
+      const item = pick(catalog);
+      return { id: nextId++, kind: "buy", who, label: item.name, amount: Number(item.price) || 0, when };
+    };
+
+    setLiveEvents(Array.from({ length: 5 }, makeEvent));
+    const timer = setInterval(() => {
+      setLiveEvents((prev) => [makeEvent(), ...prev].slice(0, 6));
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Mobile-only category banner shown above each category's product list
   const renderMobileCategoryBanner = (category: string, isSingleView: boolean) => (
     <div className="md:hidden mx-2 mb-3 relative overflow-hidden flex items-center gap-3 rounded-2xl bg-gradient-to-r from-purple-800 via-purple-600 to-fuchsia-600 px-3 py-3 shadow-lg shadow-purple-900/20 ring-1 ring-white/10">
@@ -874,7 +915,7 @@ const Shop = () => {
             
             <div className="w-full flex justify-center py-2">
               <Button 
-                onClick={() => window.open("https://t.me/+2347043768862", "_blank")}
+                onClick={() => window.open("https://t.me/viktohs_customer_care", "_blank")}
                 className="w-full sm:w-3/4 flex items-center justify-center gap-2 bg-[#0088cc] hover:bg-[#0077b3] text-white"
               >
                 <Send className="w-4 h-4" />
@@ -886,7 +927,7 @@ const Shop = () => {
               <Button 
                 variant="outline"
                 onClick={() => {
-                  navigator.clipboard.writeText("https://t.me/+2347043768862");
+                  navigator.clipboard.writeText("https://t.me/viktohs_customer_care");
                   toast.success("Link copied!");
                 }}
                 className="w-full sm:w-3/4 flex items-center justify-center gap-2"
@@ -1101,7 +1142,7 @@ const Shop = () => {
                     </div>
                     <button
                       type="button"
-                      onClick={() => window.open("https://t.me/+2347043768862", "_blank")}
+                      onClick={() => window.open("https://t.me/viktohs_customer_care", "_blank")}
                       className="relative flex w-fit items-center gap-1 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-purple-700 shadow-md active:scale-95"
                     >
                       Join Telegram <ChevronRight className="h-4 w-4" />
@@ -1314,19 +1355,7 @@ const Shop = () => {
             {/* Mobile Quick Actions */}
             <div className="block md:hidden px-4 mb-6 animate-in fade-in slide-in-from-bottom duration-500">
               <h2 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-3">Quick actions</h2>
-              <div className="grid grid-cols-4 gap-3">
-                <a
-                  href="https://viktohs-sms.com/signin"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex flex-col items-center gap-2"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900">
-                    <Smartphone className="h-5 w-5" />
-                  </div>
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Numbers</span>
-                </a>
-
+              <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => setShowWorkingPictures(true)}
                   className="flex flex-col items-center gap-2"
@@ -1742,7 +1771,7 @@ const Shop = () => {
                   </button>
                   
                   <button
-                    onClick={() => window.open('https://t.me/+2347043768862', '_blank')}
+                    onClick={() => window.open('https://t.me/viktohs_customer_care', '_blank')}
                     className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-100 dark:hover:bg-[#18181b] rounded-lg transition-colors"
                   >
                     <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
@@ -1773,100 +1802,56 @@ const Shop = () => {
       </div>
     </div>
 
-      {/* Mobile: Live Activity (recent purchases and deposits), shown before the footer */}
-      {(() => {
-        const maskedName = `${(user.name || user.email.split("@")[0]).slice(0, 3)}***`;
-        const timeAgo = (iso: string) => {
-          const diff = Math.max(0, Date.now() - new Date(iso).getTime());
-          const mins = Math.floor(diff / 60000);
-          if (isNaN(mins)) return "";
-          if (mins < 1) return "Just now";
-          if (mins < 60) return `${mins} min${mins === 1 ? "" : "s"} ago`;
-          const hrs = Math.floor(mins / 60);
-          if (hrs < 24) return `${hrs} hr${hrs === 1 ? "" : "s"} ago`;
-          const days = Math.floor(hrs / 24);
-          return `${days} day${days === 1 ? "" : "s"} ago`;
-        };
+      {/* Mobile: Live Activity (simulated feed), shown before the footer */}
+      <section className="md:hidden px-4 mt-8 mb-4">
+        <div className="overflow-hidden rounded-2xl border border-purple-600/60 bg-white dark:bg-[#0b0b12] shadow-xl shadow-purple-900/10">
+          {/* Header */}
+          <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple-800 via-purple-600 to-fuchsia-600 py-4">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-300 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-400" />
+            </span>
+            <h2 className="text-lg font-extrabold uppercase tracking-wide text-white">Live Activity</h2>
+          </div>
 
-        const activities = [
-          ...purchaseHistory.map((p) => ({
-            kind: "buy" as const,
-            label: p.name,
-            amount: Number(p.price || 0) * Number(p.quantity || 1),
-            date: p.purchaseDate,
-          })),
-          ...depositHistory
-            .filter((d) => d.status === "success" || d.status === "completed")
-            .map((d) => ({
-              kind: "deposit" as const,
-              label: d.method || "Wallet",
-              amount: Number(d.amount || 0),
-              date: d.createdAt,
-            })),
-        ]
-          .filter((a) => a.date && !isNaN(new Date(a.date).getTime()))
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-          .slice(0, 5);
+          {/* Column titles */}
+          <div className="flex items-center justify-between bg-gray-100 dark:bg-white/5 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <span>Activity</span>
+            <span>Time</span>
+          </div>
 
-        return (
-          <section className="md:hidden px-4 mt-8 mb-4">
-            <div className="overflow-hidden rounded-2xl border border-purple-600/60 bg-white dark:bg-[#0b0b12] shadow-xl shadow-purple-900/10">
-              {/* Header */}
-              <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple-800 via-purple-600 to-fuchsia-600 py-4">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-300 opacity-75" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-400" />
-                </span>
-                <h2 className="text-lg font-extrabold uppercase tracking-wide text-white">Live Activity</h2>
-              </div>
-
-              {/* Column titles */}
-              <div className="flex items-center justify-between bg-gray-100 dark:bg-white/5 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                <span>Activity</span>
-                <span>Time</span>
-              </div>
-
-              {/* Rows */}
-              {activities.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                  No activity yet. Your purchases and deposits will show up here.
+          {/* Rows */}
+          <div className="divide-y divide-gray-100 dark:divide-white/10">
+            {liveEvents.map((a) => (
+              <div key={a.id} className="px-5 py-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="min-w-0 text-sm font-medium text-gray-800 dark:text-gray-100">
+                    {a.who}{" "}
+                    {a.kind === "buy" ? (
+                      <span className="text-purple-600 dark:text-purple-400">bought</span>
+                    ) : (
+                      <span className="text-green-600 dark:text-green-400">deposited via {a.label}</span>
+                    )}
+                  </p>
+                  <span className="flex-shrink-0 text-xs text-gray-400 dark:text-gray-500">{a.when}</span>
                 </div>
-              ) : (
-                <div className="divide-y divide-gray-100 dark:divide-white/10">
-                  {activities.map((a, i) => (
-                    <div key={i} className="px-5 py-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="min-w-0 text-sm font-medium text-gray-800 dark:text-gray-100">
-                          {maskedName}{" "}
-                          {a.kind === "buy" ? (
-                            <span className="text-purple-600 dark:text-purple-400">bought</span>
-                          ) : (
-                            <span className="text-green-600 dark:text-green-400">deposited via {a.label}</span>
-                          )}
-                        </p>
-                        <span className="flex-shrink-0 text-xs text-gray-400 dark:text-gray-500">{timeAgo(a.date)}</span>
-                      </div>
-                      {a.kind === "buy" && (
-                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 break-words line-clamp-2">{a.label}</p>
-                      )}
-                      <p className={`mt-1.5 text-lg font-extrabold ${a.kind === "buy" ? "text-gray-900 dark:text-white" : "text-green-600 dark:text-green-400"}`}>
-                        ₦{a.amount.toLocaleString("en-NG")}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Footer */}
-              <div className="flex items-center justify-center gap-2 bg-gray-100 dark:bg-white/5 py-3 text-sm text-gray-500 dark:text-gray-400">
-                <span className="h-2.5 w-2.5 rounded-full bg-gray-400" />
-                Live updates
+                {a.kind === "buy" && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 break-words line-clamp-2">{a.label}</p>
+                )}
+                <p className={`mt-1.5 text-lg font-extrabold ${a.kind === "buy" ? "text-gray-900 dark:text-white" : "text-green-600 dark:text-green-400"}`}>
+                  ₦{a.amount.toLocaleString("en-NG")}
+                </p>
               </div>
-            </div>
-          </section>
-        );
-      })()}
+            ))}
+          </div>
 
+          {/* Footer */}
+          <div className="flex items-center justify-center gap-2 bg-gray-100 dark:bg-white/5 py-3 text-sm text-gray-500 dark:text-gray-400">
+            <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-green-500" />
+            Live updates
+          </div>
+        </div>
+      </section>
       {/* Mobile Working Pictures View */}
       {showWorkingPictures && (
         <div className="fixed inset-0 z-40 md:hidden bg-gray-50 dark:bg-black overflow-y-auto pb-24">
@@ -1986,7 +1971,7 @@ const Shop = () => {
       {/* Floating Help Support (bottom-right) */}
       <div className="fixed bottom-24 md:bottom-8 right-5 z-50">
         <a
-          href="https://t.me/+2347043768862"
+          href="https://t.me/viktohs_customer_care"
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-col items-center gap-1 group"
@@ -2540,7 +2525,7 @@ const Shop = () => {
                           <ExternalLink className="h-3.5 w-3.5 ml-auto text-gray-400" />
                         </button>
                         <button
-                          onClick={() => { window.open("https://t.me/+2347043768862", "_blank"); closeDrawer(); }}
+                          onClick={() => { window.open("https://t.me/viktohs_customer_care", "_blank"); closeDrawer(); }}
                           className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-white/5 transition-colors"
                         >
                           <MessageCircle className="h-4 w-4 text-sky-500 flex-shrink-0" />
@@ -2694,7 +2679,7 @@ const Shop = () => {
                   
                   <button
                     onClick={() => {
-                      window.open('https://t.me/+2347043768862', '_blank');
+                      window.open('https://t.me/viktohs_customer_care', '_blank');
                       setShowMenuDrawer(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 dark:hover:bg-purple-950 transition-colors rounded-lg"
@@ -2836,7 +2821,7 @@ const Shop = () => {
 
       {/* <div className="fixed bottom-8 right-6 z-50">
         <a
-          href="https://t.me/+2347043768862"
+          href="https://t.me/viktohs_customer_care"
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-col items-center gap-1 group"
