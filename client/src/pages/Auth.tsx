@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Mail, Lock, User, ArrowRight, Shield } from "lucide-react";
 import { apiFetch, catalogAPI, catalogCategoriesAPI, warmBackend } from "@/lib/api";
+import { ttqTrack } from "@/lib/tiktok";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -48,6 +49,7 @@ const Auth = () => {
       }) as { ok: boolean; user: { id: string; email: string; name?: string; balance: number } };
 
       localStorage.setItem("currentUser", JSON.stringify(data.user));
+      ttqTrack("Login");
       toast.success("Welcome back!");
       // Fire-and-forget prefetch of shop data to speed up first render
       (async () => {
@@ -131,6 +133,7 @@ const Auth = () => {
       }) as { ok: boolean; user: { id: string; email: string; name?: string; balance: number } };
 
       localStorage.setItem("currentUser", JSON.stringify(data.user));
+      ttqTrack("CompleteRegistration");
       toast.success("Account created successfully!");
       navigate("/shop");
     } catch (err) {

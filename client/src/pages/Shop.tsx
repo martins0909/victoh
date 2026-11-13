@@ -17,6 +17,7 @@ import bannerLog3 from "@/assets/bannerlogo3.png";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import { Plus, LogOut, BadgeCheck, X, ShoppingCart, Minus, Send, LayoutGrid, ExternalLink, ChevronRight, Megaphone } from "lucide-react";
 import viklogo from "@/assets/viklogo.jpeg";
+import { ttqTrack } from "@/lib/tiktok";
 // Removed demo product assets; shop now shows only database products
 
 interface SerialNumber {
@@ -322,6 +323,15 @@ const Shop = () => {
   };
 
   const handleBuyClick = (product: Product) => {
+    ttqTrack("AddToCart", {
+      content_id: product.id,
+      content_name: product.name,
+      content_category: product.category,
+      content_type: "product",
+      quantity: 1,
+      value: product.price,
+      currency: "NGN",
+    });
     setSelectedProduct(product);
     setPurchaseQuantity(1);
     setShowBuyDialog(true);
@@ -349,6 +359,14 @@ const Shop = () => {
 
     // Set loading state to prevent duplicate purchases
     setIsPurchasing(true);
+    ttqTrack("InitiateCheckout", {
+      content_id: selectedProduct.id,
+      content_name: selectedProduct.name,
+      content_type: "product",
+      quantity: purchaseQuantity,
+      value: totalPrice,
+      currency: "NGN",
+    });
 
     try {
       // Only enforce stock limits for regular catalog products (not download links)
@@ -405,6 +423,16 @@ const Shop = () => {
         deliveryUrl: h.deliveryUrl,
         purchaseDate: h.purchaseDate.toString()
       })));
+
+      ttqTrack("CompletePayment", {
+        content_id: selectedProduct.id,
+        content_name: selectedProduct.name,
+        content_category: selectedProduct.category,
+        content_type: "product",
+        quantity: purchaseQuantity,
+        value: totalPrice,
+        currency: "NGN",
+      });
 
       // Show purchase summary dialog
       setPurchaseSummaryData({
@@ -605,6 +633,7 @@ const Shop = () => {
         return;
       }
 
+      ttqTrack("AddPaymentInfo", { value: amount, currency: "NGN", content_name: "Wallet Top-up (Quick Pay)" });
       setQuickPayDetails(data);
       setShowQuickPayDetailsDialog(true);
       toast.success("Quick Pay details ready");
@@ -766,6 +795,7 @@ const Shop = () => {
               if (alreadyProcessed) {
                 toast.info("Payment already processed.");
               } else {
+                ttqTrack("CompletePayment", { value: finalAmount, currency: "NGN", content_name: "Wallet Top-up" });
                 toast.success(`₦${finalAmount.toFixed(2)} added to your wallet!`);
               }
             } else {
